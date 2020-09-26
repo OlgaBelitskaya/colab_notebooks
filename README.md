@@ -28,6 +28,10 @@
 #### [📓 style_transfer_2.ipynb](https://colab.research.google.com/drive/1IS_6BqJDLVbJJsuTuWTr3OfGP5uEu2eV)
 #### [📓 style_transfer_3.ipynb](https://colab.research.google.com/drive/1xXFADlgQ1YQmXODto1Fa6Nb-lNzqY8-b)
 
+***
+
+#### [📓 sb_housing.ipynb](https://colab.research.google.com/drive/13YVEPwrMQC2TO2GGPvV95Bysh4dhd8we)
+
 <br/></details>
 
 ---
@@ -36,6 +40,8 @@
 
 #### [📓 cnn_blocks.ipynb](https://colab.research.google.com/drive/1cUNcTDii7cAebvGDvZDl6I5a2QkOmuZA)
 #### [📓 cnn_building.ipynb](https://colab.research.google.com/drive/1w58DSF3go_wKcqfBLIDt1PFyj1H6XrXi)
+#### [📓 pretrained_tfmodels.ipynb](https://colab.research.google.com/drive/1mgHjtlEiJkVcM_LJJxKv6cPtI92hAE0y)
+#### [📓sequential_data.ipynb](https://colab.research.google.com/drive/1d3uTgVIHe5OxuIRruXiucAFbzkNnM6Cz)
 
 <br/></details>
 
@@ -94,7 +100,11 @@
 #### [📓 sklearn_cookbook.ipynb](https://colab.research.google.com/drive/1SzhiPlKpabufNxHuknvktwxPW06utBGC)
 #### [📓 sklearn_clusters.ipynb](https://colab.research.google.com/drive/15L-HE9ZZ4SYEluXpyP10zaIVPCYxSmLw)
 #### [📓 sql_cookbook.ipynb](https://colab.research.google.com/drive/1eBNz-GA6w0AhdsKHqtxkrIm1bIYk_X9d) 
-#### [📓 sql_cookbook2.ipynb](https://colab.research.google.com/drive/1_--QDZPF0mE7Pw4W2Oxm8XPp7VaPXq-M)  
+#### [📓 sql_cookbook2.ipynb](https://colab.research.google.com/drive/1_--QDZPF0mE7Pw4W2Oxm8XPp7VaPXq-M) 
+#### [📓 ml_basics.ipynb](https://colab.research.google.com/drive/1v5jgNTfUOvnZAf2o_oIbK1WO_k5wtHHP) 
+#### [📓 ml_basics2.ipynb](https://colab.research.google.com/drive/1Zxc3FsTLD6EtPN9v_KJQFRXloUSqKGrV)
+#### [📓 ml_basics3.ipynb](https://colab.research.google.com/drive/1djAv8JBVP8TMuXidwU7J-bFn-U92McL2)
+#### [📓 opencv_cookbook.ipynb](https://colab.research.google.com/drive/1GD7Oi1LtFaEi8VOjiBM5cj5ayWpaejaf) 
 
 <br/></details>
 
@@ -109,6 +119,8 @@
 #### [📓 coordinates.ipynb](https://colab.research.google.com/drive/17QfzKyhTZLJnfa0XKyf7c3Elgk6mWFf_)
 #### [📓 function_plotting_py.ipynb](https://colab.research.google.com/drive/1UbPaXtrQBhW5eHFCG0l37svA2bl0HGUj)
 #### [📓 function_plotting_js.ipynb](https://colab.research.google.com/drive/1nHCQV8glR7S3H3mWFJqlOMzWSwsue8pG)
+#### [📓 plotly_practice.ipynb](https://colab.research.google.com/drive/10Ix65Uf9mmHwXwNESDT6dnztZhLfmGjA)
+#### [📓 polyhedrons.ipynb](https://colab.research.google.com/drive/1TMhzRuov32GnncYjCxO2wBLhe3WoMdjf)
 
 <br/></details>
 
