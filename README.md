@@ -22,7 +22,7 @@
 #### [📓 breed_recognition.ipynb](https://colab.research.google.com/drive/1uB1PuT_uNGM2tv88ZDkIj6Dhi_Rf91PA)
 #### [📓 cultivar_recognition.ipynb](https://colab.research.google.com/drive/1pymaadPUhSm0T9N5h44ls-mAcrylfa2F)
 
-***************
+***
 
 #### [📓 style_transfer.ipynb](https://colab.research.google.com/drive/1svW40BBscfSLD7Je99TyctBeRWIOYHKa)
 #### [📓 style_transfer_2.ipynb](https://colab.research.google.com/drive/1IS_6BqJDLVbJJsuTuWTr3OfGP5uEu2eV)
@@ -52,6 +52,19 @@
 #### [📓 pytorch_practice7.ipynb](https://colab.research.google.com/drive/11IGPKrNfJlWeFqH7aYjDFwcBNPMeDF4-)
 #### [📓 pytorch_practice8.ipynb](https://colab.research.google.com/drive/1mVSQXzQC_4tC0Zp9zY2nH1NvBGjubwRZ)
 #### [📓 pytorch_practice9.ipynb](https://colab.research.google.com/drive/1DXLsibfnCYN6C7gJts97nXww6NQhtlEh)
+#### [📓 pytorch_practice10.ipynb](https://colab.research.google.com/drive/1TJKCxObKA6Sx7wjC18gqehagdj3dTIcS)
+#### [📓 pytorch_practice11.ipynb](https://colab.research.google.com/drive/1y0e65zEvAlcUVWluKJHm5J9gRcrj1SYn)
+#### [📓 pytorch_practice12.ipynb](https://colab.research.google.com/drive/1OBmekkzdgivSLrJq_6HTtHZKc5ZNXbqX)
+#### [📓 pytorch_practice13.ipynb](https://colab.research.google.com/drive/1V9fDIPwPPi0gMkyDxOcMEu7-VHI1CjTm)
+#### [📓 pytorch_practice14.ipynb](https://colab.research.google.com/drive/1AsUDpzWnlOj-YuwahYIiJk0XGIoPd0N0)
+#### [📓 pytorch_practice15.ipynb](https://colab.research.google.com/drive/1kydV6_IC0BtHwpijx4oVjEab_Z39RpCQ)
+#### [📓 pytorch_practice16.ipynb](https://colab.research.google.com/drive/1cwnC1Xz9XEDfIsPbaVI4mqOmQbT8aRI_)
+#### [📓 pytorch_practice17.ipynb](https://colab.research.google.com/drive/1sDO3S-oPGgdgxwzkBFFousJa6dYexd7z)
+#### [📓 pytorch_practice18.ipynb](https://colab.research.google.com/drive/1JLI64BVp6W-3XL4wfCUX3sfXXYU7iVpb)
+#### [📓 pytorch_practice19.ipynb](https://colab.research.google.com/drive/1WSXLo_ByA1xP8__FLevUhmAxQ5J_siZS)
+#### [📓 pytorch_practice20.ipynb](https://colab.research.google.com/drive/1C000nI1zonxAK9tvIRlRUWuqnHwuERgl)
+#### [📓 pytorch_practice21.ipynb](https://colab.research.google.com/drive/1Nkr8BybYG-iIy7nha-A6S2d2QIa3rTx2)
+#### [📓 pytorch_practice22.ipynb](https://colab.research.google.com/drive/1PxqVoIvUkv-bYDMTGtCNYNji3-ObqNWz)
 
 <br/></details>
 
