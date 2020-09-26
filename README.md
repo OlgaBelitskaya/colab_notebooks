@@ -8,6 +8,7 @@
 #### [📓 boston_regression.ipynb ](https://colab.research.google.com/drive/1atPu92jNJ-qBsFpbOiMojHGXCu6gJWYW)
 #### [📓 artificial_images.ipynb](https://colab.research.google.com/drive/18YC4JdyH5hKTUstifpdvbS-K1UEKMQKY)
 #### [📓 image_biospecies3.ipynb](https://colab.research.google.com/drive/1LVZHYSci3HPaAFvz_rSXvfAB326O8su0)
+#### [📓 svhn_recognition.ipynb](https://drive.google.com/file/d/1QYQNGNxp3-L_u_IPsvxPZ9vZBtrQ4PSD)
 
 <br/></details>
 
@@ -27,6 +28,7 @@
 #### [📓 style_transfer.ipynb](https://colab.research.google.com/drive/1svW40BBscfSLD7Je99TyctBeRWIOYHKa)
 #### [📓 style_transfer_2.ipynb](https://colab.research.google.com/drive/1IS_6BqJDLVbJJsuTuWTr3OfGP5uEu2eV)
 #### [📓 style_transfer_3.ipynb](https://colab.research.google.com/drive/1xXFADlgQ1YQmXODto1Fa6Nb-lNzqY8-b)
+#### [📓 styling_experiments.ipynb](https://colab.research.google.com/drive/1cOA5IuB-4sUrq77d1lEpxJi6FvebnV5J)
 
 ***
 
@@ -41,7 +43,7 @@
 #### [📓 cnn_blocks.ipynb](https://colab.research.google.com/drive/1cUNcTDii7cAebvGDvZDl6I5a2QkOmuZA)
 #### [📓 cnn_building.ipynb](https://colab.research.google.com/drive/1w58DSF3go_wKcqfBLIDt1PFyj1H6XrXi)
 #### [📓 pretrained_tfmodels.ipynb](https://colab.research.google.com/drive/1mgHjtlEiJkVcM_LJJxKv6cPtI92hAE0y)
-#### [📓sequential_data.ipynb](https://colab.research.google.com/drive/1d3uTgVIHe5OxuIRruXiucAFbzkNnM6Cz)
+#### [📓 sequential_data.ipynb](https://colab.research.google.com/drive/1d3uTgVIHe5OxuIRruXiucAFbzkNnM6Cz)
 
 <br/></details>
 
@@ -79,6 +81,7 @@
 <br/><details><summary>Synthetic Data</summary>
     
 #### [📓 data_autobuilder.ipynb](https://colab.research.google.com/drive/1YrcKAbmHj4kdjytgF_xvKVdVB1cFxWex)
+#### [📓 synthetic_data.ipynb](https://colab.research.google.com/drive/1W6jDqujLXFktJfhfDOXzR6vKLWHt3AkM)
     
 <br/></details>
 
