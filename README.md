@@ -9,6 +9,7 @@
 #### [📓 artificial_images.ipynb](https://colab.research.google.com/drive/18YC4JdyH5hKTUstifpdvbS-K1UEKMQKY)
 #### [📓 image_biospecies3.ipynb](https://colab.research.google.com/drive/1LVZHYSci3HPaAFvz_rSXvfAB326O8su0)
 #### [📓 svhn_recognition.ipynb](https://drive.google.com/file/d/1QYQNGNxp3-L_u_IPsvxPZ9vZBtrQ4PSD)
+#### [📓 xgb_symbol_classification.ipynb](https://colab.research.google.com/drive/1oeMkr6YFssz2Hw7cUe0EMNL9xbhjjPPJ)
 
 <br/></details>
 
@@ -38,12 +39,26 @@
 
 ---
 
+<br/><details><summary>Text Processing</summary>
+
+#### [📓 sequential_data.ipynb](https://colab.research.google.com/drive/1d3uTgVIHe5OxuIRruXiucAFbzkNnM6Cz)
+
+<br/></details>
+
+---
+
 <br/><details><summary>TensorFlow Practice</summary>
 
 #### [📓 cnn_blocks.ipynb](https://colab.research.google.com/drive/1cUNcTDii7cAebvGDvZDl6I5a2QkOmuZA)
 #### [📓 cnn_building.ipynb](https://colab.research.google.com/drive/1w58DSF3go_wKcqfBLIDt1PFyj1H6XrXi)
 #### [📓 pretrained_tfmodels.ipynb](https://colab.research.google.com/drive/1mgHjtlEiJkVcM_LJJxKv6cPtI92hAE0y)
-#### [📓 sequential_data.ipynb](https://colab.research.google.com/drive/1d3uTgVIHe5OxuIRruXiucAFbzkNnM6Cz)
+#### [📓 tensorflow_cookbook.ipynb](https://colab.research.google.com/drive/1UPT3vUBNdrfHPl33H6FVKRu8Mf-Lc8px)
+#### [📓 tensorflow_cookbook2.ipynb](https://colab.research.google.com/drive/1RoHGrTJz4KOiHN1W-UCGzzY5abV3pXLg)
+#### [📓 tensorflow_cookbook3.ipynb](https://colab.research.google.com/drive/1UXD9nxTS9s2EGkiRst59NREqX9Eiw3Zp)
+#### [📓 tf_data.ipynb](https://colab.research.google.com/drive/1m0IooZ52Z1mZ9o0uaOW4pgkFzJw4lH-l)
+#### [📓 tf_data2.ipynb](https://colab.research.google.com/drive/1w7Rm-7KMUkLUzpeb0V5n5qbHduZK_M2T)
+#### [📓 tf_data3.ipynb](https://colab.research.google.com/drive/1Gw07q36CaqvJdRZ0A1561lfKMq2hc-eX)
+#### [📓 tfimage_processing.ipynb](https://colab.research.google.com/drive/1Gw07q36CaqvJdRZ0A1561lfKMq2hc-eX)
 
 <br/></details>
 
@@ -79,10 +94,10 @@
 ---
 
 <br/><details><summary>Synthetic Data</summary>
-    
+
 #### [📓 data_autobuilder.ipynb](https://colab.research.google.com/drive/1YrcKAbmHj4kdjytgF_xvKVdVB1cFxWex)
 #### [📓 synthetic_data.ipynb](https://colab.research.google.com/drive/1W6jDqujLXFktJfhfDOXzR6vKLWHt3AkM)
-    
+
 <br/></details>
 
 ---
