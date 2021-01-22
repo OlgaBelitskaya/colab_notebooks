@@ -7,64 +7,102 @@ Original file is located at
     https://colab.research.google.com/drive/1UPT3vUBNdrfHPl33H6FVKRu8Mf-Lc8px
 """
 
-# Commented out IPython magic to ensure Python compatibility.
-from IPython.display import display,HTML
-def dhtml(str):
-    display(HTML("""<style>
-    @import url('https://fonts.googleapis.com/css?family=Ewert&effect=3d');      
-    </style><h1 class='font-effect-3d' style='font-family:Ewert; color:#ff355e'>
-#     %s</h1>"""%str))
+import random; from IPython.display import display,HTML
+from IPython.core.magic import register_line_magic
+@register_line_magic
+def decor_header(params):
+    params=params.split('|'); string=params[0]
+    if len(params)==1: 
+        font_size='24'; font_family='Wallpoet'; cmap='Sinebow'
+    elif  len(params)==2: 
+        font_size=params[1]
+        font_family='Wallpoet'; cmap='Sinebow'
+    elif  len(params)==3: 
+        font_size=params[1]; font_family=params[2]
+        cmap='Sinebow'
+    else: 
+        font_size=params[1]; font_family=params[2]; cmap=params[3]
+    height=max([int(font_size)*2.5,60]) 
+    html_str="""
+<script src='https://d3js.org/d3.v6.min.js'></script>
+<style>
+@import 'https://fonts.googleapis.com/css?family="""+font_family+"""';
+#colorized001 {
+font-family:"""+font_family+"""; font-size:"""+font_size+""";}
+#canvas001,#canvas002 {width:10%; vertical-align:middle;}
+</style>
+<text id='colorized001'><canvas id='canvas001'></canvas>
+"""+string+"""
+<canvas id='canvas002'></canvas></text><br/>
+<script>
+var tc=setInterval(function() {
+    var now=(new Date().getTime()%5000)/5000;
+    var now_slow=(new Date().getTime()%100000)/100000;
+    var iddoc=document.getElementById('colorized001');
+    iddoc.style.color=d3.interpolate"""+cmap+"""(now);
+    var r=10,n=7;
+    var c1=document.getElementById('canvas001'); 
+    var context1=c1.getContext('2d');
+    var c2=document.getElementById('canvas002'); 
+    var context2=c2.getContext('2d');
+    c1.style.background=d3.interpolate"""+cmap+"""(now_slow); 
+    c2.style.background=d3.interpolate"""+cmap+"""(now_slow);
+    context1.strokeStyle=d3.interpolate"""+cmap+"""(now);    
+    context2.strokeStyle=d3.interpolate"""+cmap+"""(now);
+    for (var i=1; i<n; i++) {
+        context1.beginPath(); context2.beginPath();
+        for (var j=0; j<6; j++) {
+            context1.arc(60*j,r*(n+.5),i*r,0,2*Math.PI);
+            context2.arc(60*j,r*(n+.5),i*r,0,2*Math.PI); };
+        context1.stroke(); context2.stroke(); }; },1)
+</script>"""
+    display(HTML(html_str))
 
-dhtml('Code Modules & Helpful Functions')
+# Commented out IPython magic to ensure Python compatibility.
+# %decor_header Modules, Helpful Functions, & Styling
 
 import warnings; warnings.filterwarnings('ignore')
 import numpy as np,pandas as pd,pylab as pl
 import tensorflow_hub as th
-import zipfile,h5py,urllib
+import seaborn as sn,zipfile,h5py,urllib
 import tensorflow as tf,keras as ks
 from sklearn.model_selection import train_test_split
 from keras.callbacks import ModelCheckpoint,EarlyStopping
 from keras.callbacks import ReduceLROnPlateau
 import PIL.Image
 
-fpath='https://olgabelitskaya.github.io/'
-hpath='https://tfhub.dev/google/magenta/'+\
-      'arbitrary-image-stylization-v1-256/1'
-fw1='weights.best.cifar.hdf5'
-fw2='weights.best.flowers.hdf5'
+data_path='https://raw.githubusercontent.com/'+\
+          'OlgaBelitskaya/data_kitchen/main/'
+file_path='https://olgabelitskaya.gitlab.io/images/'
+tfhub_path='https://tfhub.dev/google/magenta/'+\
+           'arbitrary-image-stylization-v1-256/1'
+model_weights='weights.best.flowers.hdf5'
+model_weights2='weights.best.cifar.hdf5'
 
 def prepro(x_train,y_train,x_test,y_test):
     n=int(len(x_test)/2)
     x_valid,y_valid=x_test[:n],y_test[:n]
     x_test,y_test=x_test[n:],y_test[n:]
-    cy_train=ks.utils.to_categorical(y_train,10) 
-    cy_valid=ks.utils.to_categorical(y_valid,10)
-    cy_test=ks.utils.to_categorical(y_test,10)
     df=pd.DataFrame([[x_train.shape,x_valid.shape,x_test.shape],
-                     [y_train.shape,y_valid.shape,y_test.shape],
-                     [cy_train.shape,cy_valid.shape,cy_test.shape]],
+                     [y_train.shape,y_valid.shape,y_test.shape]],
                     columns=['train','valid','test'],
-                    index=['images','labels','encoded labels'])
+                    index=['images','labels'])
     display(df)
     return [[x_train,x_valid,x_test],
-            [y_train,y_valid,y_test],
-            [cy_train,cy_valid,cy_test]]
+            [y_train,y_valid,y_test]]
 
 def cb(fw):
     early_stopping=tf.keras.callbacks\
     .EarlyStopping(monitor='val_loss',patience=20,verbose=2)
     checkpointer=tf.keras.callbacks\
-    .ModelCheckpoint(filepath=fw,save_best_only=True,verbose=2)
+    .ModelCheckpoint(filepath=fw,verbose=int(0),
+                     save_weights_only=True,save_best_only=True,
+                     monitor='val_accuracy',mode='max')
     lr_reduction=tf.keras.callbacks\
     .ReduceLROnPlateau(monitor='val_loss',verbose=2,
                        patience=5,factor=.8)
     return [checkpointer,early_stopping,lr_reduction]
 
-def get_img(file):
-    input_file=urllib.request.urlopen(fpath+file)
-    output_file=open(file,'wb'); 
-    output_file.write(input_file.read())
-    output_file.close(); input_file.close()
 def load_img(path_to_img):
     max_dim=512
     img=tf.io.read_file(path_to_img)
@@ -85,53 +123,74 @@ def tensor_to_image(tensor):
         tensor=tensor[0]
     return PIL.Image.fromarray(tensor)
 
-dhtml('Data Loading & Preprocessing')
+# Commented out IPython magic to ensure Python compatibility.
+# %decor_header Data Loading & Preprocessing
 
-(x_train1,y_train1),(x_test1,y_test1)=\
+zf='Flowers128.h5'
+input_file=urllib.request.urlopen(data_path+zf)
+output_file=open(zf,'wb')
+output_file.write(input_file.read())
+output_file.close(); input_file.close()
+with h5py.File(zf,'r') as f:
+    keys=list(f.keys())
+    print('h5py.File keys: '+', '.join(keys))
+    images=np.array(f[keys[0]])
+    labels=np.array(f[keys[1]])
+    names=[el.decode('utf-8')for el in f[keys[2]]]
+    f.close()
+
+df=pd.DataFrame(labels,columns=['label'])
+df['class']=[names[l] for l in labels]
+pl.figure(figsize=(8,4))
+sn.countplot(y='class',data=df,palette='cool',alpha=.5)
+ti='Label Distribution'
+pl.title(ti,fontsize=16); pl.tight_layout(); pl.show()
+
+N=labels.shape[0]; n=int(.1*N); shuffle_ids=np.arange(N)
+np.random.RandomState(12).shuffle(shuffle_ids)
+images=images[shuffle_ids]; labels=labels[shuffle_ids]
+x_test,x_valid,x_train=images[:n],images[n:2*n],images[2*n:]
+y_test,y_valid,y_train=labels[:n],labels[n:2*n],labels[2*n:]
+df=pd.DataFrame(
+    [[x_train.shape,x_valid.shape,x_test.shape],
+     [x_train.dtype,x_valid.dtype,x_test.dtype],
+     [y_train.shape,y_valid.shape,y_test.shape],
+     [y_train.dtype,y_valid.dtype,y_test.dtype]],
+    columns=['train','valid','test'],
+    index=['image shape','image type','label shape','label type'])
+fig=pl.figure(figsize=(8,4)); n=np.random.randint(1,100)
+for i in range(n,n+6):
+    ax=fig.add_subplot(2,3,i-n+1,xticks=[],yticks=[])
+    ax.set_title(
+        names[labels[i]],color='slategray',
+        fontdict={'fontsize':'large'})
+    ax.imshow((images[i]))
+pl.tight_layout(); pl.show(); display(df)
+
+(x_train2,y_train2),(x_test2,y_test2)=\
 ks.datasets.cifar10.load_data()
-[[x_train1,x_valid1,x_test1],
- [y_train1,y_valid1,y_test1],
- [cy_train1,cy_valid1,cy_test1]]=\
-prepro(x_train1,y_train1,x_test1,y_test1)
+[[x_train2,x_valid2,x_test2],
+ [y_train2,y_valid2,y_test2]]=\
+prepro(x_train2,y_train2,x_test2,y_test2)
 
 cifar_labels=['airplane','automobile','bird','cat','deer',
               'dog','frog','horse','ship','truck']
-pl.figure(figsize=(2,2)) 
+pl.figure(figsize=(1,1)) 
 pl.xticks([]); pl.yticks([])
-pl.title(cifar_labels[y_train1[200][0]])
-pl.imshow(x_train1[200]);
+pl.title(cifar_labels[y_train2[200][0]])
+pl.imshow(x_train2[200]);
 
-zf='FlowerColorImages.h5.zip'
-input_file=urllib.request.urlopen(fpath+zf)
-output_file=open(zf,'wb'); 
-output_file.write(input_file.read())
-output_file.close(); input_file.close()
-zipf=zipfile.ZipFile(zf,'r')
-zipf.extractall(''); zipf.close()
-f=h5py.File(zf[:-4],'r') 
-keys=list(f.keys()); keys
-images=np.array(f[keys[0]])/255
-labels=np.array(f[keys[1]]).astype('int').reshape(-1,1)
-x_train2,x_test2,y_train2,y_test2=\
-train_test_split(images,labels,test_size=.2,random_state=1)
-del images,labels
-[[x_train2,x_valid2,x_test2],
- [y_train2,y_valid2,y_test2],
- [cy_train2,cy_valid2,cy_test2]]=\
-prepro(x_train2,y_train2,x_test2,y_test2)
+# Commented out IPython magic to ensure Python compatibility.
+# %decor_header Fast Examples
 
-flower_labels=['phlox','rose','calendula','iris',
-               'max chrysanthemum','bellflower','viola',
-               'rudbeckia laciniata','peony','aquilegia']
-pl.figure(figsize=(2,2)) 
-pl.xticks([]); pl.yticks([])
-pl.title(flower_labels[y_train2[150][0]])
-pl.imshow(x_train2[150]);
+def get_file(file,file_path=file_path):
+    input_file=urllib.request.urlopen(file_path+file)
+    output_file=open(file,'wb'); 
+    output_file.write(input_file.read())
+    output_file.close(); input_file.close()
+get_file('06_001.png')
 
-dhtml('Fast Examples')
-
-get_img('picture02.png')
-content_image=load_img('picture02.png')
+content_image=load_img('06_001.png')
 x=tf.keras.applications.vgg19\
 .preprocess_input(content_image*255)
 x=tf.image.resize(x,(224,224))
@@ -144,20 +203,23 @@ predicted_top5=tf.keras.applications.vgg19\
  for (number,class_name,prob) in predicted_top5]
 tensor_to_image(content_image)
 
-hub_module=th.load(hpath)
-get_img('picture02.png')
-get_img('pattern05.jpeg')
-content_image=load_img('picture02.png')
-style_image=load_img('pattern05.jpeg')
-stylized_image=hub_module(tf.constant(content_image),
-                          tf.constant(style_image))[0]
+hub_module=th.load(tfhub_path)
+get_file('06_001.png')
+get_file('02_018.png')
+content_image=load_img('06_001.png')
+style_image=load_img('02_018.png')
+stylized_image=hub_module(
+    tf.constant(content_image),
+    tf.constant(style_image))[0]
 tensor_to_image(stylized_image)
 
-dhtml('Keras Models')
+# Commented out IPython magic to ensure Python compatibility.
+# %decor_header Keras Models
 
-def mlp_model(s):
+def mlp_model(img_size,num_classes):
     model=tf.keras.models.Sequential([
-        tf.keras.layers.Flatten(input_shape=(s,s,3)),
+        tf.keras.layers.Flatten(
+            input_shape=(img_size,img_size,3)),
         tf.keras.layers.Dense(128,activation='relu'),
         tf.keras.layers.BatchNormalization(),    
         tf.keras.layers.Dense(256,activation='relu'),
@@ -166,33 +228,34 @@ def mlp_model(s):
         tf.keras.layers.BatchNormalization(),   
         tf.keras.layers.Dense(1024,activation='relu'),
         tf.keras.layers.Dropout(.2),
-        tf.keras.layers.Dense(10,activation='softmax')
+        tf.keras.layers.Dense(num_classes,activation='softmax')
     ])
     model.compile(optimizer='adam',
                   loss='sparse_categorical_crossentropy',
                   metrics=['accuracy'])
     return model
 
-model=mlp_model(32)
-model.fit(x_train1,y_train1,epochs=100,
-          batch_size=16,callbacks=cb(fw1),
-          validation_data=(x_valid1,y_valid1));
+model=mlp_model(128,20)
+model.fit(x_train,y_train,epochs=100,batch_size=16,
+          callbacks=cb(model_weights),
+          validation_data=(x_valid,y_valid));
 
-model.load_weights(fw1)
-model.evaluate(x_test1,y_test1)
+model.load_weights(model_weights)
+model.evaluate(x_test,y_test)
 
-model=mlp_model(128)
+model=mlp_model(32,10)
 model.fit(x_train2,y_train2,epochs=100,batch_size=16,
           validation_data=(x_valid2,y_valid2),
-          callbacks=cb(fw2))
+          callbacks=cb(model_weights2))
 
-model.load_weights(fw2)
+model.load_weights(model_weights2)
 model.evaluate(x_test2,y_test2)
 
-def cnn_model(s):
+def cnn_model(img_size,num_classes):
     model=tf.keras.models.Sequential([
-        tf.keras.layers.Conv2D(32,(5,5),padding='same',
-                               input_shape=(s,s,3)),
+        tf.keras.layers.Conv2D(
+            32,(5,5),padding='same',
+            input_shape=(img_size,img_size,3)),
         tf.keras.layers.Activation('relu'),
         tf.keras.layers.MaxPooling2D(pool_size=(2,2)),
         tf.keras.layers.Dropout(.25),
@@ -207,57 +270,55 @@ def cnn_model(s):
         tf.keras.layers.Dense(128),
         tf.keras.layers.Activation('relu'),
         tf.keras.layers.Dropout(.25),
-        tf.keras.layers.Dense(10,activation='softmax')
+        tf.keras.layers.Dense(num_classes,activation='softmax')
     ])
     model.compile(optimizer='adam',
-                  loss='categorical_crossentropy',
+                  loss='sparse_categorical_crossentropy',
                   metrics=['accuracy'])
     return model
 
-model=cnn_model(32)
-model.fit(x_train1,cy_train1,epochs=100,batch_size=64,
-          validation_data=(x_valid1,cy_valid1),
-          callbacks=cb(fw1))
+model=cnn_model(128,20)
+model.fit(x_train,y_train,epochs=100,batch_size=64,
+          validation_data=(x_valid,y_valid),
+          callbacks=cb(model_weights))
 
-model.load_weights(fw1)
-model.evaluate(x_test1,cy_test1)
+model.load_weights(model_weights)
+model.evaluate(x_test,y_test)
 
-model=cnn_model(128)
-model.fit(x_train2,cy_train2,epochs=100,batch_size=64,
-          validation_data=(x_valid2,cy_valid2),
-          callbacks=cb(fw2))
+model=cnn_model(32,10)
+model.fit(x_train2,y_train2,epochs=100,batch_size=64,
+          validation_data=(x_valid2,y_valid2),
+          callbacks=cb(model_weights2))
 
-model.load_weights(fw2)
-model.evaluate(x_test2,cy_test2)
+model.load_weights(model_weights2)
+model.evaluate(x_test2,y_test2)
 
-def rnn_model(s,h):
+def rnn_model(img_size,hidden,num_classes):
     model=tf.keras.models.Sequential([
-        tf.keras.layers.BatchNormalization(input_shape=(1,s*s*3)),
-        tf.keras.layers.LSTM(h,return_sequences=True), 
-        tf.keras.layers.LSTM(h,return_sequences=True),
-        tf.keras.layers.LSTM(h),         
-        tf.keras.layers.Dense(10,activation='softmax')
+        tf.keras.layers.BatchNormalization(
+            input_shape=(1,3*img_size**2)),
+        tf.keras.layers.LSTM(hidden,return_sequences=True),
+        tf.keras.layers.LSTM(hidden,return_sequences=True),
+        tf.keras.layers.LSTM(hidden),
+        tf.keras.layers.BatchNormalization(),     
+        tf.keras.layers.Dense(num_classes,activation='softmax')
     ])
-    model.compile(loss='categorical_crossentropy',
-                  optimizer='nadam',metrics=['accuracy'])    
+    model.compile(loss='sparse_categorical_crossentropy',
+                  optimizer='adam',metrics=['accuracy'])    
     return model
 
-model=rnn_model(32,128)
-model.fit(x_train1.reshape(-1,1,32*32*3),cy_train1,
-          epochs=50,batch_size=128,
-          validation_data=(x_valid1.reshape(-1,1,32*32*3),
-                           cy_valid1),
-          callbacks=cb(fw1))
+model=rnn_model(128,256,20)
+model.fit(x_train.reshape(-1,1,128*128*3),y_train,
+          epochs=100,batch_size=128,callbacks=cb(model_weights),
+          validation_data=(x_valid.reshape(-1,1,128*128*3),y_valid))
 
-model.load_weights(fw1)
-model.evaluate(x_test1.reshape(-1,1,32*32*3),cy_test1)
+model.load_weights(model_weights)
+model.evaluate(x_test.reshape(-1,1,128*128*3),y_test)
 
-model=rnn_model(128,256)
-model.fit(x_train2.reshape(-1,1,128*128*3),cy_train2,
-          epochs=50,batch_size=128,
-          validation_data=(x_valid2.reshape(-1,1,128*128*3),
-                           cy_valid2),
-          callbacks=cb(fw2))
+model=rnn_model(32,128,10)
+model.fit(x_train2.reshape(-1,1,32*32*3),y_train2,
+          epochs=50,batch_size=128,callbacks=cb(model_weights2),
+          validation_data=(x_valid2.reshape(-1,1,32*32*3),y_valid2))
 
-model.load_weights(fw2)
-model.evaluate(x_test2.reshape(-1,1,128*128*3),cy_test2)
+model.load_weights(model_weights2)
+model.evaluate(x_test2.reshape(-1,1,32*32*3),y_test2)
