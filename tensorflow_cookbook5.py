@@ -7,7 +7,7 @@ Original file is located at
     https://colab.research.google.com/drive/1tqBIS9Vl3tog3QTl54JqPI-7crf-R0Lh
 """
 
-from IPython.display import display,HTML,clear_output
+from IPython.display import display,HTML,clear_output,Image
 from IPython.core.magic import register_line_magic
 #Sequential (Single-Hue,Multi-Hue),Diverging, Cyclical cmaps: 
 #Reds,Sinebow,Rainbow,Turbo,Warm,Cool,Plasma,Spectral,etc.
@@ -24,7 +24,6 @@ def cmap_header(params):
         cmap='Sinebow'
     else: 
         font_size=params[1]; font_family=params[2]; cmap=params[3]
-    height=int(font_size)*2.5
     html_str="""
     <head><script src='https://d3js.org/d3.v6.min.js'></script>
     </head><style>@import 'https://fonts.googleapis.com/css?family="""+\
@@ -43,9 +42,9 @@ def cmap_header(params):
 # %cmap_header Code Modules & Functions
 
 import warnings; warnings.filterwarnings('ignore')
-import os,urllib,cv2,tensorflow_hub as hub
+import os,urllib,tensorflow_hub as hub
 import numpy as np,tensorflow as tf,pylab as pl
-from tqdm import tqdm; import PIL.Image,time
+import PIL.Image,time,imageio
 from IPython.core.magic import register_line_magic
 file_path='https://olgabelitskaya.gitlab.io/images/'
 tfhub_path='https://tfhub.dev/google/magenta/'+\
@@ -67,9 +66,9 @@ def load_img(path_to_img):
     scale=max_dim/long_dim
     new_shape=tf.cast(shape*scale,tf.int32)
     img=tf.image.resize(img,new_shape)
-    img=img[tf.newaxis,:]
-    return img
-def tensor2img(tensor):
+    return img[tf.newaxis,:]
+def tensor2img(tensor,rot=True):
+    if rot: tensor=tf.image.rot90(tensor)
     tensor=tensor*255
     tensor=np.array(tensor,dtype=np.uint8)
     if np.ndim(tensor)>3:
@@ -78,7 +77,8 @@ def tensor2img(tensor):
     return PIL.Image.fromarray(tensor)
 
 def display_images(original_img,style_img,
-                   file_path=file_path):    
+                   rot=True,file_path=file_path):
+    if rot: original_img=tf.image.rot90(original_img) 
     fig=pl.figure(figsize=(10,5))
     ax=fig.add_subplot(121)
     str1='Shape of the original image: %s'
@@ -89,11 +89,19 @@ def display_images(original_img,style_img,
     pl.title(str2%str(style_img.shape),fontsize=int(8))
     ax.imshow(np.squeeze(style_img))
     pl.tight_layout(); pl.show()
+def item_stats(item):
+    for name,output in item:
+        print(name)
+        print('  shape: ',output.numpy().shape)
+        print('  min: ',output.numpy().min())
+        print('  max: ',output.numpy().max())
+        print('  mean: ',output.numpy().mean())
+        print(30*'-')
 
 # Commented out IPython magic to ensure Python compatibility.
 # %cmap_header Image Data
 
-original,style='01_004.png','06_001.png'
+original,style='01_012.png','06_001.png'
 for f in [original,style]: get_file(f)
 original_img=load_img(original)
 style_img=load_img(style)
@@ -111,7 +119,7 @@ vgg19=tf.keras.applications.VGG19(
     include_top=False,weights='imagenet')
 layers=[]
 for layer in vgg19.layers:
-  layers+=[layer.name]
+    layers+=[layer.name]
 print(layers)
 original_layers=['block5_conv2'] 
 style_layers=['block1_conv1','block2_conv1',
@@ -120,76 +128,59 @@ num_original_layers=len(original_layers)
 num_style_layers=len(style_layers)
 
 def vgg_layers(layer_names):
-  vgg19=tf.keras.applications.VGG19(
-      include_top=False,weights='imagenet')
-  vgg19.trainable=False
-  outputs=[vgg19.get_layer(name).output 
-           for name in layer_names]
-  model=tf.keras.Model([vgg19.input],outputs)
-  return model
+    vgg19=tf.keras.applications.VGG19(
+        include_top=False,weights='imagenet')
+    vgg19.trainable=False
+    outputs=[vgg19.get_layer(name).output 
+             for name in layer_names]
+    model=tf.keras.Model([vgg19.input],outputs)
+    return model
 
 # Commented out IPython magic to ensure Python compatibility.
 # %cmap_header Style Extracting
 
 style_extractor=vgg_layers(style_layers)
 style_outputs=style_extractor(style_img*255)
-for name,output in zip(style_layers,style_outputs):
-  print(name)
-  print('  shape: ',output.numpy().shape)
-  print('  min: ',output.numpy().min())
-  print('  max: ',output.numpy().max())
-  print('  mean: ',output.numpy().mean())
-  print(30*'-')
+item_stats(zip(style_layers,style_outputs))
 
 def gram_matrix(input_tensor):
-  result=tf.linalg.einsum(
-      'bijc,bijd->bcd',input_tensor,input_tensor)
-  input_shape=tf.shape(input_tensor)
-  num_locations=tf.cast(
-      input_shape[1]*input_shape[2],tf.float32)
-  return result/(num_locations)
+    result=tf.linalg.einsum(
+        'bijc,bijd->bcd',input_tensor,input_tensor)
+    input_shape=tf.shape(input_tensor)
+    num_locations=tf.cast(
+        input_shape[1]*input_shape[2],tf.float32)
+    return result/(num_locations)
 
 class StyleOriginalModel(tf.keras.models.Model):
-  def __init__(self,style_layers,original_layers):
-    super(StyleOriginalModel,self).__init__()
-    self.vgg=vgg_layers(style_layers+original_layers)
-    self.style_layers=style_layers
-    self.original_layers=original_layers
-    self.num_style_layers=len(style_layers)
-    self.vgg.trainable=False
-  def call(self,inputs):
-    inputs=inputs*255.0
-    preprocessed_input=\
-    tf.keras.applications.vgg19.preprocess_input(inputs)
-    outputs=self.vgg(preprocessed_input)
-    style_outputs,original_outputs=\
-    (outputs[:self.num_style_layers],
-     outputs[self.num_style_layers:])
-    style_outputs=[gram_matrix(style_output)
-                   for style_output in style_outputs]
-    original_dict={original_name:value for original_name,value 
-                  in zip(self.original_layers,original_outputs)}
-    style_dict={style_name:value for style_name,value
-                in zip(self.style_layers,style_outputs)}
-    return {'original':original_dict,'style':style_dict}
+    def __init__(self,style_layers,original_layers):
+        super(StyleOriginalModel,self).__init__()
+        self.vgg=vgg_layers(style_layers+original_layers)
+        self.style_layers=style_layers
+        self.original_layers=original_layers
+        self.num_style_layers=len(style_layers)
+        self.vgg.trainable=False
+    def call(self,inputs):
+        inputs=inputs*255.0
+        preprocessed_input=\
+        tf.keras.applications.vgg19.preprocess_input(inputs)
+        outputs=self.vgg(preprocessed_input)
+        style_outputs,original_outputs=\
+        (outputs[:self.num_style_layers],
+         outputs[self.num_style_layers:])
+        style_outputs=[gram_matrix(style_output)
+                       for style_output in style_outputs]
+        original_dict={original_name:value for original_name,value 
+                       in zip(self.original_layers,original_outputs)}
+        style_dict={style_name:value for style_name,value
+                    in zip(self.style_layers,style_outputs)}
+        return {'original':original_dict,'style':style_dict}
 
 extractor=StyleOriginalModel(style_layers,original_layers)
 results=extractor(tf.constant(original_img))
 print('Styles:')
-for name,output in sorted(results['style'].items()):
-  print('  ', name)
-  print('    shape: ',output.numpy().shape)
-  print('    min: ',output.numpy().min())
-  print('    max: ',output.numpy().max())
-  print('    mean: ',output.numpy().mean())
-  print(30*'-')
+item_stats(sorted(results['style'].items()))
 print('Originals:')
-for name,output in sorted(results['original'].items()):
-  print('  ', name)
-  print('    shape: ',output.numpy().shape)
-  print('    min: ',output.numpy().min())
-  print('    max: ',output.numpy().max())
-  print('    mean: ',output.numpy().mean())
+item_stats(sorted(results['original'].items()))
 
 # Commented out IPython magic to ensure Python compatibility.
 # %cmap_header Gradient Descent Steps
@@ -236,13 +227,13 @@ start=time.time()
 epochs=10; steps_per_epoch=100
 step=0
 for n in range(epochs):
-  for m in range(steps_per_epoch):
-    step+=1
-    train_step(img)
-    print('-',end='')
-  clear_output(wait=True)
-  display(tensor2img(img))
-  print('Train step: {}'.format(step))
+    for m in range(steps_per_epoch):
+        step+=1
+        train_step(img)
+        print('-',end='')
+    clear_output(wait=True)
+    display(tensor2img(img))
+    print('Train step: {}'.format(step))
 end=time.time()
 print('Total time: {:.1f}'.format(end-start))
 
@@ -250,11 +241,11 @@ print('Total time: {:.1f}'.format(end-start))
 # %cmap_header Total Variation Loss
 
 def highpass_xy(img):
-  x_var=img[:,:,1:,:]-img[:,:,:-1,:]
-  y_var=img[:,1:,:,:]-img[:,:-1,:,:]
-  return x_var,y_var
+    x_var=img[:,:,1:,:]-img[:,:,:-1,:]
+    y_var=img[:,1:,:,:]-img[:,:-1,:,:]
+    return x_var,y_var
 
-x_deltas,y_deltas=highpass_xy(original_img)
+x_deltas,y_deltas=highpass_xy(tf.image.rot90(original_img))
 pl.figure(figsize=(12,8))
 pl.subplot(2,4,1)
 pl.imshow(tf.squeeze(clip01(2*y_deltas+.5)))
@@ -262,14 +253,14 @@ pl.title('Horizontal Deltas | Original')
 pl.subplot(2,4,2)
 pl.imshow(tf.squeeze(clip01(2*x_deltas+.5)))
 pl.title('Vertical Deltas | Original')
-x_deltas,y_deltas=highpass_xy(img)
+x_deltas,y_deltas=highpass_xy(tf.image.rot90(original_img))
 pl.subplot(2,4,3)
 pl.imshow(tf.squeeze(clip01(2*y_deltas+.5)))
 pl.title('Horizontal Deltas | Styled')
 pl.subplot(2,4,4)
 pl.imshow(tf.squeeze(clip01(2*x_deltas+.5)))
 pl.title('Vertical Deltas | Styled')
-sobel=tf.image.sobel_edges(original_img)
+sobel=tf.image.sobel_edges(tf.image.rot90(original_img))
 pl.subplot(2,4,5)
 pl.imshow(tf.squeeze(clip01(sobel[...,0]/4+.5)))
 pl.title('Horizontal Sobel-edges')
@@ -278,9 +269,9 @@ pl.imshow(tf.squeeze(clip01(sobel[...,1]/4+.5)))
 pl.title('Vertical Sobel-edges');
 
 def total_variation_loss(img):
-  x_deltas,y_deltas=highpass_xy(img)
-  return tf.reduce_sum(tf.abs(x_deltas))+\
-         tf.reduce_sum(tf.abs(y_deltas))
+    x_deltas,y_deltas=highpass_xy(img)
+    return tf.reduce_sum(tf.abs(x_deltas))+\
+           tf.reduce_sum(tf.abs(y_deltas))
 
 total_variation_loss(img).numpy(),\
 tf.image.total_variation(img).numpy()
@@ -288,28 +279,36 @@ tf.image.total_variation(img).numpy()
 # Commented out IPython magic to ensure Python compatibility.
 # %cmap_header Train Steps with Total Variation Loss
 
-total_variation_weight=50
+total_variation_weight=120
 img=tf.Variable(original_img)
 @tf.function()
 def train_step(img,total_variation_weight=total_variation_weight):
-  with tf.GradientTape() as tape:
-    outputs=extractor(img)
-    loss=style_original_loss(outputs)
-    loss+=total_variation_weight*tf.image.total_variation(img)
-  gradient=tape.gradient(loss,img)
-  optimizer.apply_gradients([(gradient,img)])
-  img.assign(clip01(img))
+    with tf.GradientTape() as tape:
+        outputs=extractor(img)
+        loss=style_original_loss(outputs)
+        loss+=total_variation_weight*tf.image.total_variation(img)
+    gradient=tape.gradient(loss,img)
+    optimizer.apply_gradients([(gradient,img)])
+    img.assign(clip01(img))
 
 start=time.time()
-epochs=10; steps_per_epoch=100
-step=0
+epochs=30; steps_per_epoch=100
+step=0; imgs=[]
 for n in range(epochs):
-  for m in range(steps_per_epoch):
-    step+=1
-    train_step(img)
-    print('-',end='')
-  clear_output(wait=True)
-  display(tensor2img(img))
-  print('Train step: {}'.format(step))
+    for m in range(steps_per_epoch):
+        step+=1
+        train_step(img)
+        print('-',end='')
+    clear_output(wait=True)
+    display(tensor2img(img))
+    imgs.append(np.squeeze(tf.image.rot90(img).numpy()))
+    print('Train step: {}'.format(step))
 end=time.time()
+imgs=np.array(imgs)
 print('Total time: {:.1f}'.format(end-start))
+
+file_name='pic.gif'
+imgs=imgs*255
+imgs=np.array(imgs,dtype=np.uint8)
+imageio.mimsave(file_name,imgs)
+Image(open('pic.gif','rb').read())
