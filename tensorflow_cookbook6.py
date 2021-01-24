@@ -104,32 +104,32 @@ style_transform_path=tf.keras.utils.get_file(
     'int8/transfer/1?lite-format=tflite')
 
 def style_predict(prepro_style_img):
-  interpreter=tf.lite.Interpreter(
-      model_path=style_predict_path)
-  interpreter.allocate_tensors()
-  input_details=interpreter.get_input_details()
-  interpreter.set_tensor(
-      input_details[0]['index'],prepro_style_img)
-  interpreter.invoke()
-  style_bottleneck=interpreter.tensor(
-      interpreter.get_output_details()[0]['index'])()
-  return style_bottleneck
+    interpreter=tf.lite.Interpreter(
+        model_path=style_predict_path)
+    interpreter.allocate_tensors()
+    input_details=interpreter.get_input_details()
+    interpreter.set_tensor(
+        input_details[0]['index'],prepro_style_img)
+    interpreter.invoke()
+    style_bottleneck=interpreter.tensor(
+        interpreter.get_output_details()[0]['index'])()
+    return style_bottleneck
 style_bottleneck=style_predict(prepro_style_img)
 print('Style Bottleneck Shape:',style_bottleneck.shape)
 
 def style_transform(style_bottleneck,prepro_original_img):
-  interpreter=tf.lite.Interpreter(
-      model_path=style_transform_path)
-  input_details=interpreter.get_input_details()
-  interpreter.allocate_tensors()
-  interpreter.set_tensor(
-      input_details[0]['index'],prepro_original_img)
-  interpreter.set_tensor(
-      input_details[1]['index'],style_bottleneck)
-  interpreter.invoke()
-  stylized_img=interpreter.tensor(
-      interpreter.get_output_details()[0]['index'])()
-  return stylized_img
+    interpreter=tf.lite.Interpreter(
+        model_path=style_transform_path)
+    input_details=interpreter.get_input_details()
+    interpreter.allocate_tensors()
+    interpreter.set_tensor(
+        input_details[0]['index'],prepro_original_img)
+    interpreter.set_tensor(
+        input_details[1]['index'],style_bottleneck)
+    interpreter.invoke()
+    stylized_img=interpreter.tensor(
+        interpreter.get_output_details()[0]['index'])()
+    return stylized_img
 stylized_img=style_transform(
     style_bottleneck,prepro_original_img)
 tensor2img(stylized_img)
@@ -147,6 +147,9 @@ original_blending_ratio*style_bottleneck_original+\
 stylized_img_blended=style_transform(
     style_bottleneck_blended,prepro_original_img)
 tensor2img(stylized_img_blended)
+
+# Commented out IPython magic to ensure Python compatibility.
+# %cmap_header Style Original Interpolation
 
 def interpolate_hypersphere(v1,v2,steps):
     v1norm=np.linalg.norm(v1)
