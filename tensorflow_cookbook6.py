@@ -148,9 +148,6 @@ stylized_img_blended=style_transform(
     style_bottleneck_blended,prepro_original_img)
 tensor2img(stylized_img_blended)
 
-# Commented out IPython magic to ensure Python compatibility.
-# %cmap_header Style Original Interpolation
-
 def interpolate_hypersphere(v1,v2,steps):
     v1norm=np.linalg.norm(v1)
     v2norm=np.linalg.norm(v2)
