@@ -139,6 +139,11 @@ def vgg_layers(layer_names):
 # Commented out IPython magic to ensure Python compatibility.
 # %cmap_header Style Extracting
 
+original,style='01_012.png','06_002.png'
+for f in [original,style]: get_file(f)
+original_img=load_img(original)
+style_img=load_img(style)
+display_images(original_img,style_img)
 style_extractor=vgg_layers(style_layers)
 style_outputs=style_extractor(style_img*255)
 item_stats(zip(style_layers,style_outputs))
@@ -188,13 +193,13 @@ item_stats(sorted(results['original'].items()))
 style_targets=extractor(style_img)['style']
 original_targets=extractor(original_img)['original']
 optimizer=tf.optimizers.Adam(
-    learning_rate=.02,beta_1=.99,epsilon=.1)
-style_weight=.01; original_weight=10**4
+    learning_rate=.01,beta_1=.99,epsilon=.1)
+style_weight=.01; original_weight=10**3
 img=tf.Variable(original_img)
 
 def clip01(img):
   return tf.clip_by_value(
-      img,clip_value_min=0.0,clip_value_max=1.0)
+      img,clip_value_min=0.,clip_value_max=1.)
 
 def style_original_loss(outputs):
     style_outputs=outputs['style']
@@ -224,7 +229,7 @@ for i in range(5):
 tensor2img(img)
 
 start=time.time()
-epochs=10; steps_per_epoch=100
+epochs=50; steps_per_epoch=100
 step=0
 for n in range(epochs):
     for m in range(steps_per_epoch):
@@ -245,22 +250,24 @@ def highpass_xy(img):
     y_var=img[:,1:,:,:]-img[:,:-1,:,:]
     return x_var,y_var
 
-x_deltas,y_deltas=highpass_xy(tf.image.rot90(original_img))
-pl.figure(figsize=(12,8))
+rot=True
+if rot: rot_img=tf.image.rot90(original_img)
+x_deltas,y_deltas=highpass_xy(rot_img)
+pl.figure(figsize=(10,8))
 pl.subplot(2,4,1)
 pl.imshow(tf.squeeze(clip01(2*y_deltas+.5)))
 pl.title('Horizontal Deltas | Original')
 pl.subplot(2,4,2)
 pl.imshow(tf.squeeze(clip01(2*x_deltas+.5)))
 pl.title('Vertical Deltas | Original')
-x_deltas,y_deltas=highpass_xy(tf.image.rot90(original_img))
+x_deltas,y_deltas=highpass_xy(rot_img)
 pl.subplot(2,4,3)
 pl.imshow(tf.squeeze(clip01(2*y_deltas+.5)))
 pl.title('Horizontal Deltas | Styled')
 pl.subplot(2,4,4)
 pl.imshow(tf.squeeze(clip01(2*x_deltas+.5)))
 pl.title('Vertical Deltas | Styled')
-sobel=tf.image.sobel_edges(tf.image.rot90(original_img))
+sobel=tf.image.sobel_edges(rot_img)
 pl.subplot(2,4,5)
 pl.imshow(tf.squeeze(clip01(sobel[...,0]/4+.5)))
 pl.title('Horizontal Sobel-edges')
@@ -279,7 +286,7 @@ tf.image.total_variation(img).numpy()
 # Commented out IPython magic to ensure Python compatibility.
 # %cmap_header Train Steps with Total Variation Loss
 
-total_variation_weight=120
+total_variation_weight=30
 img=tf.Variable(original_img)
 @tf.function()
 def train_step(img,total_variation_weight=total_variation_weight):
@@ -292,7 +299,7 @@ def train_step(img,total_variation_weight=total_variation_weight):
     img.assign(clip01(img))
 
 start=time.time()
-epochs=30; steps_per_epoch=100
+epochs=50; steps_per_epoch=100
 step=0; imgs=[]
 for n in range(epochs):
     for m in range(steps_per_epoch):
@@ -301,14 +308,16 @@ for n in range(epochs):
         print('-',end='')
     clear_output(wait=True)
     display(tensor2img(img))
-    imgs.append(np.squeeze(tf.image.rot90(img).numpy()))
+    if rot: 
+        imgs.append(np.squeeze(tf.image.rot90(img).numpy()))
+    else: 
+        imgs.append(np.squeeze(img.numpy()))
     print('Train step: {}'.format(step))
 end=time.time()
 imgs=np.array(imgs)
 print('Total time: {:.1f}'.format(end-start))
 
 file_name='pic.gif'
-imgs=imgs*255
-imgs=np.array(imgs,dtype=np.uint8)
+imgs=np.array(imgs*255,dtype=np.uint8)
 imageio.mimsave(file_name,imgs)
 Image(open('pic.gif','rb').read())
