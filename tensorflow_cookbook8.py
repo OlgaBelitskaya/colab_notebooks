@@ -9,10 +9,11 @@ Original file is located at
 ## ✒️ Code Modules
 """
 
-from IPython.display import display,HTML
+from IPython.display import display,HTML,Image
 from IPython.core.magic import register_line_magic
-import tensorflow as tf,tensorflow_hub as hub,numpy as np
-import os,h5py,urllib,pandas as pd,pylab as pl
+import tensorflow as tf,tensorflow_hub as hub
+import os,h5py,urllib,imageio
+import pandas as pd,numpy as np,pylab as pl
 file_path='https://raw.githubusercontent.com/'+\
            'OlgaBelitskaya/data_kitchen/main/'
 file_name='HorseBreeds160.h5'
@@ -107,3 +108,28 @@ def low2superbicubic_imgs(lr,sr):
     pl.imshow(bicubic.numpy())
     pl.tight_layout(); pl.show()
 low2superbicubic_imgs(lr,sr)
+
+"""## ✒️ Color Interpolation"""
+
+def interpolate_hypersphere(v1,v2,steps):
+    v1norm=tf.norm(v1); v2norm=tf.norm(v2)
+    v2normalized=v2*(v1norm/v2norm)
+    vectors=[]
+    for step in range(steps):
+        interpolated=v1+(v2normalized-v1)*step/(steps-int(1))
+        interpolated_norm=tf.norm(interpolated)
+        interpolated_normalized=interpolated*(v1norm/interpolated_norm)
+        vectors.append(interpolated_normalized)
+    return tf.stack(vectors).numpy()
+
+lr1,sr1=esrgantf2_superresolution(x_train[0],img_size)
+lr2,sr2=esrgantf2_superresolution(x_train[1],img_size)
+
+img1=sr1.numpy()/float(255); img2=sr2.numpy()/float(255)
+imgs=np.vstack([interpolate_hypersphere(img1,img2,int(30)),
+                interpolate_hypersphere(img2,img1,int(30))])
+
+file_name='pic.gif'
+imgs=np.array(imgs*float(255),dtype=np.uint8)
+imageio.mimsave(file_name,imgs)
+Image(open('pic.gif','rb').read())
