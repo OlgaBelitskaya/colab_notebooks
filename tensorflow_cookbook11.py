@@ -21,7 +21,8 @@ zoomed_inset_axes,mark_inset
 
 dataset_url='http://www.eecs.berkeley.edu/Research/'+\
             'Projects/CS/vision/grouping/BSR/BSR_bsds500.tgz'
-data_dir=tf.keras.utils.get_file(origin=dataset_url,fname='BSR',untar=True)
+data_dir=tf.keras.utils.get_file(
+    origin=dataset_url,fname='BSR',untar=True)
 root_dir=os.path.join(data_dir,'BSDS500/data')
 data_path=os.path.join(root_dir,'images')
 test_path=os.path.join(data_path,'test')
@@ -31,17 +32,16 @@ test_paths=sorted(
     if fname.endswith('.jpg')])
 test_paths[:3]
 
-def scale01(input_img):
-    return input_img/255
-def process_input(input,img_size,upscale_factor):
-    input=tf.image.rgb_to_yuv(input)
-    last_dimension_axis=len(input.shape)-1
-    y,u,v=tf.split(input,3,axis=last_dimension_axis)
+def scale01(img): return img/255
+def process_input(input_rgb,img_size):
+    input_yuv=tf.image.rgb_to_yuv(input_rgb)
+    last_dimension_axis=len(input_yuv.shape)-1
+    y,u,v=tf.split(input_yuv,3,axis=last_dimension_axis)
     return tf.image.resize(y,[img_size,img_size],method='area')
-def process_target(input):
-    input=tf.image.rgb_to_yuv(input)
-    last_dimension_axis=len(input.shape)-1
-    y,u,v=tf.split(input,3,axis=last_dimension_axis)
+def process_target(input_rgb):
+    input_yuv=tf.image.rgb_to_yuv(input_rgb)
+    last_dimension_axis=len(input_yuv.shape)-1
+    y,u,v=tf.split(input_yuv,3,axis=last_dimension_axis)
     return y
 
 [crop_size,upscale_factor]=[400,4]
@@ -60,25 +60,20 @@ valid_ds=image_dataset_from_directory(
 train_ds=train_ds.map(scale01)
 valid_ds=valid_ds.map(scale01)
 for batch in train_ds.take(1):
-    for img in batch:
-        display(array_to_img(img)); break
+    for img in batch: display(array_to_img(img)); break
 
 train_ds=train_ds.map(
-    lambda x:(process_input(x,input_size,upscale_factor),
-              process_target(x)))
-train_ds=train_ds.prefetch(buffer_size=32)
+    lambda x:(process_input(x,input_size),process_target(x)))
+train_ds=train_ds.prefetch(buffer_size=16)
 valid_ds=valid_ds.map(
-    lambda x:(process_input(x,input_size,upscale_factor),
-              process_target(x)))
-valid_ds=valid_ds.prefetch(buffer_size=32)
-for batch in train_ds.take(1):
-    for img in batch[0]:
-        display(array_to_img(img)); break
-    print(3*'===> ')
-    for img in batch[1]:
-        display(array_to_img(img)); break
+    lambda x:(process_input(x,input_size),process_target(x)))
+valid_ds=valid_ds.prefetch(buffer_size=16)
+for batch in valid_ds.take(1):
+    for img in batch[0]: display(array_to_img(img)); break
+    print(10*'==> ')
+    for img in batch[1]: display(array_to_img(img)); break
 
-def get_model(upscale_factor=3,channels=1):
+def model(upscale_factor=upscale_factor,channels=1):
     conv_args={'activation':'relu',
                'kernel_initializer':'Orthogonal',
                'padding':'same',}
@@ -90,7 +85,7 @@ def get_model(upscale_factor=3,channels=1):
     outputs=tf.nn.depth_to_space(x,upscale_factor)
     return tf.keras.Model(inputs,outputs)
 
-def plot_results(img,prefix,title):
+def display_results(img,prefix,title):
     img_array=img_to_array(img)
     img_array=img_array.astype('float32')/255
     fig,ax=pl.subplots()
@@ -104,16 +99,16 @@ def plot_results(img,prefix,title):
     mark_inset(ax,axins,loc1=1,loc2=3,fc='none',ec='magenta')
     pl.savefig(str(prefix)+'-'+title+'.png')
     pl.show()
-def get_lowres_image(img, upscale_factor):
-    return img.resize(
-        (img.size[0]//upscale_factor,img.size[1]//upscale_factor),
-         PIL.Image.BICUBIC,)
-def upscale_image(model,img):
+def low_resolution_img(img,upscale_factor):
+    dimensions=(img.size[0]//upscale_factor,
+                img.size[1]//upscale_factor)
+    return img.resize(dimensions,PIL.Image.BICUBIC,)
+def upscale_img(model,img):
     ycbcr=img.convert('YCbCr')
     y,cb,cr=ycbcr.split()
     y=img_to_array(y).astype('float32')/255
-    input=np.expand_dims(y,axis=0)
-    out=model.predict(input)
+    input_img=np.expand_dims(y,axis=0)
+    out=model.predict(input_img)
     out_img_y=out[0]*255.
     out_img_y=out_img_y.clip(0,255)
     out_img_y=out_img_y.reshape(
@@ -128,15 +123,16 @@ def upscale_image(model,img):
 class ESPCNCallback(tf.keras.callbacks.Callback):
     def __init__(self):
         super(ESPCNCallback,self).__init__()
-        self.test_img=get_lowres_image(
+        self.test_img=low_resolution_img(
             load_img(test_paths[0]),upscale_factor)
     def on_epoch_begin(self,epoch,logs=None):
         self.psnr=[]
     def on_epoch_end(self,epoch,logs=None):
         print('mean PSNR for epoch: %.2f'%(np.mean(self.psnr)))
-        if (epoch+1)%25==0:
-            prediction=upscale_image(self.model,self.test_img)
-            plot_results(prediction,'epoch-'+str(epoch),'prediction')
+        if epoch%25==0:
+            prediction=upscale_img(self.model,self.test_img)
+            display_results(
+                prediction,'epoch-'+str(epoch),'prediction')
     def on_test_batch_end(self,batch,logs=None):
         self.psnr.append(10*math.log10(1/logs['loss']))
 
@@ -145,7 +141,8 @@ checkpoint_path='/tmp/checkpoint'
 checkpoint=tkc.ModelCheckpoint(
     filepath=checkpoint_path,save_weights_only=True,
     monitor='loss',mode='min',save_best_only=True,verbose=2)
-model=get_model(upscale_factor=upscale_factor,channels=1)
+
+model=model(upscale_factor=upscale_factor,channels=1)
 model.summary()
 callbacks=[ESPCNCallback(),early_stopping,checkpoint]
 loss_fn=tf.keras.losses.MeanSquaredError()
@@ -160,17 +157,17 @@ model.load_weights(checkpoint_path)
 
 # Commented out IPython magic to ensure Python compatibility.
 total_bicubic_psnr=0.; total_test_psnr=0.
-for index,test_img_path in enumerate(test_paths[10:15]):
-    img=load_img(test_img_path)
-    lowres_input=get_lowres_image(img,upscale_factor)
+for index,test_path in enumerate(test_paths[5:10]):
+    img=load_img(test_path)
+    lowres_input=low_resolution_img(img,upscale_factor)
     w=lowres_input.size[0]*upscale_factor
     h=lowres_input.size[1]*upscale_factor
     highres_img=img.resize((w,h))
-    prediction=upscale_image(model,lowres_input)
+    predict_img=upscale_img(model,lowres_input)
     lowres_img=lowres_input.resize((w,h))
     lowres_img_arr=img_to_array(lowres_img)
     highres_img_arr=img_to_array(highres_img)
-    predict_img_arr=img_to_array(prediction)
+    predict_img_arr=img_to_array(predict_img)
     bicubic_psnr=tf.image.psnr(
         lowres_img_arr,highres_img_arr,max_val=255)
     test_psnr=tf.image.psnr(
@@ -180,9 +177,9 @@ for index,test_img_path in enumerate(test_paths[10:15]):
     print('PSNR of low resolution image '+\
           'and high resolution image is %.4f'%bicubic_psnr)
     print('PSNR of predict and high resolution is %.4f'%test_psnr)
-    plot_results(lowres_img,index,'low resolution')
-    plot_results(highres_img,index,'high resolution')
-    plot_results(prediction,index,'prediction')
+    display_results(lowres_img,index,'low resolution')
+    display_results(highres_img,index,'high resolution')
+    display_results(predict_img,index,'prediction')
 print('avg. PSNR of images with low resolution is %.4f'\
 #       %(total_bicubic_psnr/10))
 print('avg. PSNR of reconstructions is %.4f'\
