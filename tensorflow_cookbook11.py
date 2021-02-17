@@ -78,8 +78,8 @@ def model(upscale_factor=upscale_factor,channels=1):
                'kernel_initializer':'Orthogonal',
                'padding':'same',}
     inputs=tf.keras.Input(shape=(None,None,channels))
-    x=tkl.Conv2D(128,5,**conv_args)(inputs)
-    x=tkl.Conv2D(64,5,**conv_args)(x)
+    x=tkl.Conv2D(256,5,**conv_args)(inputs)
+    x=tkl.Conv2D(96,5,**conv_args)(x)
     x=tkl.Conv2D(32,3,**conv_args)(x)
     x=tkl.Conv2D(channels*(upscale_factor**2),3,**conv_args)(x)
     outputs=tf.nn.depth_to_space(x,upscale_factor)
@@ -96,7 +96,7 @@ def display_results(img,prefix,title):
     x1,x2,y1,y2=200,300,100,200
     axins.set_xlim(x1,x2); axins.set_ylim(y1,y2)
     pl.yticks(visible=False); pl.xticks(visible=False)
-    mark_inset(ax,axins,loc1=1,loc2=3,fc='none',ec='magenta')
+    mark_inset(ax,axins,loc1=2,loc2=3,fc='none',ec='magenta')
     pl.savefig(str(prefix)+'-'+title+'.png')
     pl.show()
 def low_resolution_img(img,upscale_factor):
@@ -148,16 +148,21 @@ callbacks=[ESPCNCallback(),early_stopping,checkpoint]
 loss_fn=tf.keras.losses.MeanSquaredError()
 optimizer=tf.keras.optimizers.Adam(learning_rate=.001)
 
-epochs=100
+epochs=200
 model.compile(optimizer=optimizer,loss=loss_fn,)
-model.fit(
+history=model.fit(
     train_ds,epochs=epochs,callbacks=callbacks,
     validation_data=valid_ds,verbose=2)
 model.load_weights(checkpoint_path)
 
+history_keys=list(history.history.keys())
+pl.figure(figsize=(10,3))
+pl.plot(history.history[history_keys[1]])
+pl.grid(); pl.title(history_keys[1]);
+
 # Commented out IPython magic to ensure Python compatibility.
 total_bicubic_psnr=0.; total_test_psnr=0.
-for index,test_path in enumerate(test_paths[5:10]):
+for index,test_path in enumerate(test_paths[5:15]):
     img=load_img(test_path)
     lowres_input=low_resolution_img(img,upscale_factor)
     w=lowres_input.size[0]*upscale_factor
@@ -174,8 +179,8 @@ for index,test_path in enumerate(test_paths[5:10]):
         predict_img_arr,highres_img_arr,max_val=255)
     total_bicubic_psnr+=bicubic_psnr
     total_test_psnr+=test_psnr
-    print('PSNR of low resolution image '+\
-          'and high resolution image is %.4f'%bicubic_psnr)
+    print('PSNR of low resolution '+\
+          'and high resolution is %.4f'%bicubic_psnr)
     print('PSNR of predict and high resolution is %.4f'%test_psnr)
     display_results(lowres_img,index,'low resolution')
     display_results(highres_img,index,'high resolution')
