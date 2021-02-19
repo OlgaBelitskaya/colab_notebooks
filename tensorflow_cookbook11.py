@@ -119,8 +119,8 @@ def model(upscale_factor=upscale_factor,channels=1):
                'padding':'same',}
     inputs=tf.keras.Input(shape=(None,None,channels))
  #   x=tkl.Conv2D(1024,5,**conv_args)(inputs)
-    x=tkl.Conv2D(512,5,**conv_args)(inputs)
-    x=tkl.Conv2D(256,5,**conv_args)(x)
+ #   x=tkl.Conv2D(512,5,**conv_args)(inputs)
+    x=tkl.Conv2D(256,5,**conv_args)(inputs)
     x=tkl.Conv2D(96,5,**conv_args)(x)
     x=tkl.Conv2D(32,3,**conv_args)(x)
     x=tkl.Conv2D(channels*(upscale_factor**2),3,**conv_args)(x)
@@ -198,7 +198,7 @@ callbacks=[ESPCNCallback(),early_stopping,checkpoint,lr_reduction]
 loss_fn=tf.keras.losses.MeanSquaredError()
 optimizer=tf.keras.optimizers.Adam(learning_rate=.001)
 
-epochs=200
+epochs=300
 model.compile(optimizer=optimizer,loss=loss_fn,)
 history=model.fit(
     train_ds,epochs=epochs,callbacks=callbacks,
