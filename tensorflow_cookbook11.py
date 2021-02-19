@@ -7,6 +7,37 @@ Original file is located at
     https://colab.research.google.com/drive/1qMhgMZpgR2JB0h_Y1Eu8SOSzKf5Y27lj
 """
 
+#@title Code Lines with Header Styling
+from IPython.display import display,HTML
+from IPython.core.magic import register_line_magic
+@register_line_magic
+def cmap_header(params):
+    params=params.split('|'); string=params[0]
+    if len(params)==1: 
+        font_size='20'; font_family='Ewert'; cmap='Sinebow'
+    elif  len(params)==2: 
+        font_size=params[1]; font_family='Ewert'; cmap='Sinebow'
+    elif  len(params)==3: 
+        font_size=params[1]; font_family=params[2]; cmap='Sinebow'
+    else: 
+        font_size=params[1]; font_family=params[2]; cmap=params[3]
+    html_str="""
+    <head><script src='https://d3js.org/d3.v6.min.js'></script></head>
+    <style>@import 'https://fonts.googleapis.com/css?family="""+\
+    font_family+"""&effect=3d'; #colorized {font-family:"""+font_family+"""; 
+    color:white; padding-left:10px; font-size:"""+font_size+"""px;}</style>
+    <h1 id='colorized' class='font-effect-3d'>"""+string+"""</h1>
+    <script>
+    var tc=setInterval(function(){
+        var now=new Date().getTime();
+        var iddoc=document.getElementById('colorized');
+        iddoc.style.color=d3.interpolate"""+cmap+"""(now%(60000)/60000);},1)
+    </script>"""
+    display(HTML(html_str))
+
+# Commented out IPython magic to ensure Python compatibility.
+# %cmap_header CODE MODULES & HELPFUL TOOLS
+
 import tensorflow as tf,os,math,numpy as np
 from tensorflow.keras import layers as tkl
 from tensorflow.keras import callbacks as tkc
@@ -18,6 +49,9 @@ from IPython.display import display
 import pylab as pl,PIL
 from mpl_toolkits.axes_grid1.inset_locator import \
 zoomed_inset_axes,mark_inset
+
+# Commented out IPython magic to ensure Python compatibility.
+# %cmap_header DATA LOADING
 
 dataset_url='http://www.eecs.berkeley.edu/Research/'+\
             'Projects/CS/vision/grouping/BSR/BSR_bsds500.tgz'
@@ -31,6 +65,9 @@ test_paths=sorted(
     for fname in os.listdir(test_path)
     if fname.endswith('.jpg')])
 test_paths[:3]
+
+# Commented out IPython magic to ensure Python compatibility.
+# %cmap_header DATA PROCESSING
 
 def scale01(img): return img/255
 def process_input(input_rgb,img_size):
@@ -73,17 +110,25 @@ for batch in valid_ds.take(1):
     print(10*'==> ')
     for img in batch[1]: display(array_to_img(img)); break
 
+# Commented out IPython magic to ensure Python compatibility.
+# %cmap_header MODEL BUILDING
+
 def model(upscale_factor=upscale_factor,channels=1):
     conv_args={'activation':'relu',
                'kernel_initializer':'Orthogonal',
                'padding':'same',}
     inputs=tf.keras.Input(shape=(None,None,channels))
-    x=tkl.Conv2D(256,5,**conv_args)(inputs)
+ #   x=tkl.Conv2D(1024,5,**conv_args)(inputs)
+    x=tkl.Conv2D(512,5,**conv_args)(inputs)
+    x=tkl.Conv2D(256,5,**conv_args)(x)
     x=tkl.Conv2D(96,5,**conv_args)(x)
     x=tkl.Conv2D(32,3,**conv_args)(x)
     x=tkl.Conv2D(channels*(upscale_factor**2),3,**conv_args)(x)
     outputs=tf.nn.depth_to_space(x,upscale_factor)
     return tf.keras.Model(inputs,outputs)
+
+# Commented out IPython magic to ensure Python compatibility.
+# %cmap_header CALLBACKS & PLOTTING
 
 def display_results(img,prefix,title):
     img_array=img_to_array(img)
@@ -97,12 +142,12 @@ def display_results(img,prefix,title):
     axins.set_xlim(x1,x2); axins.set_ylim(y1,y2)
     pl.yticks(visible=False); pl.xticks(visible=False)
     mark_inset(ax,axins,loc1=2,loc2=3,fc='none',ec='magenta')
-    pl.savefig(str(prefix)+'-'+title+'.png')
+    pl.savefig(str(prefix)+'_'+title+'.png')
     pl.show()
 def low_resolution_img(img,upscale_factor):
     dimensions=(img.size[0]//upscale_factor,
                 img.size[1]//upscale_factor)
-    return img.resize(dimensions,PIL.Image.BICUBIC,)
+    return img.resize(dimensions,PIL.Image.BICUBIC)
 def upscale_img(model,img):
     ycbcr=img.convert('YCbCr')
     y,cb,cr=ycbcr.split()
@@ -141,10 +186,15 @@ checkpoint_path='/tmp/checkpoint'
 checkpoint=tkc.ModelCheckpoint(
     filepath=checkpoint_path,save_weights_only=True,
     monitor='loss',mode='min',save_best_only=True,verbose=2)
+lr_reduction=tkc.ReduceLROnPlateau(
+    monitor='val_loss',patience=10,verbose=2,factor=.9)
+
+# Commented out IPython magic to ensure Python compatibility.
+# %cmap_header MODEL COMPILING & TRAINING
 
 model=model(upscale_factor=upscale_factor,channels=1)
 model.summary()
-callbacks=[ESPCNCallback(),early_stopping,checkpoint]
+callbacks=[ESPCNCallback(),early_stopping,checkpoint,lr_reduction]
 loss_fn=tf.keras.losses.MeanSquaredError()
 optimizer=tf.keras.optimizers.Adam(learning_rate=.001)
 
@@ -159,6 +209,9 @@ history_keys=list(history.history.keys())
 pl.figure(figsize=(10,3))
 pl.plot(history.history[history_keys[1]])
 pl.grid(); pl.title(history_keys[1]);
+
+# Commented out IPython magic to ensure Python compatibility.
+# %cmap_header TEST RESULTS
 
 # Commented out IPython magic to ensure Python compatibility.
 total_bicubic_psnr=0.; total_test_psnr=0.
