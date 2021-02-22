@@ -36,10 +36,11 @@ def cmap_header(params):
     display(HTML(html_str))
 
 # Commented out IPython magic to ensure Python compatibility.
-# %cmap_header Code Modules & Functions
+# %cmap_header Code Modules, Settings & Functions
 
-!python -m pip install --upgrade pip --user --quiet 
-!python -m pip install --upgrade \
+!python3 -m pip install --upgrade pip \
+--user --quiet --no-warn-script-location
+!python3 -m pip install --upgrade \
 neural_structured_learning --user --quiet
 
 import os,h5py,urllib,pandas as pd,numpy as np
@@ -52,6 +53,18 @@ file_path='https://raw.githubusercontent.com/'+\
 file_name='Pictograms64.h5'
 img_size=64
 model_weights='/checkpoints'
+
+def pd_style():
+    return [dict(selector='th',
+                 props=[('font-size','12pt'),('min-width','150px')]),
+            dict(selector='td',
+                 props=[('padding','0em 0em'),('min-width','150px')]),
+            dict(selector='tr:hover th:hover',
+                 props=[('font-size','14pt'),('max-width','150px'),
+                        ('text-shadow','3px 3px 3px #aaa')]),
+            dict(selector='tr:hover td:hover',
+                 props=[('font-size','12pt'),('max-width','150px'),
+                        ('text-shadow','3px 3px 3px #aaa')])]
 
 def h5file2data(h5file,img_size,
                 resize=True,cmap='tab20',fig_size=7):
@@ -79,7 +92,8 @@ def h5file2data(h5file,img_size,
          [y_train.dtype,y_valid.dtype,y_test.dtype]],
         columns=['train','valid','test'],
         index=['image shape','image type','label shape','label type'])
-    print('data outputs: '); display(df)
+    print('data outputs: ')
+    display(df.style.set_table_styles(pd_style()))
     print('distribution of labels: ')
     idx=['labels %d'%(i+1) for i in range(labels.shape[0])]
     df=pd.DataFrame(labels,index=idx).T
@@ -99,7 +113,8 @@ def display_images(images,labels,names,n):
         ax=fig.add_subplot(int(n//5)+1,5,i+1,xticks=[],yticks=[])
         ax.imshow(images[idx],cmap='bone')
         label=[labels[:,idx]]
-        name=[names[i][labels[i][idx]] for i in range(labels.shape[0])]
+        name=[names[i][labels[i][idx]] 
+              for i in range(labels.shape[0])]
         ti='{} \n {}'.format(str(label),str(name))
         ax.set_title(ti,fontsize=8)
     pl.tight_layout(); pl.show()
@@ -113,9 +128,28 @@ def cb(mw):
         monitor='val_sparse_categorical_accuracy',
         filepath=mw,verbose=2,mode='max')
     lr_reduction=tf.keras.callbacks.ReduceLROnPlateau(
-        monitor='val_sparse_categorical_accuracy',
-        verbose=2,patience=5,factor=.8,mode='max')
+        monitor='val_scaled_adversarial_loss',
+        verbose=2,patience=10,factor=.8,mode='min')
     return [checkpointer,early_stopping,lr_reduction]
+
+def keras_history_plot(
+    fit_history,fig_size=9,color='darkblue'):
+    keys=list(fit_history.history.keys())
+    list_history=[fit_history.history[keys[i]] 
+                  for i in range(len(keys))]
+    dfkeys=pd.DataFrame(list_history).T
+    dfkeys.columns=keys
+    fig=pl.figure(figsize=(fig_size,fig_size))
+    ax1=fig.add_subplot(3,1,1)
+    dfkeys.iloc[:,[0,4]].plot(
+        ax=ax1,color=['slategray',color],grid=True)
+    ax2=fig.add_subplot(3,1,2)
+    dfkeys.iloc[:,[3,7]].plot(
+        ax=ax2,color=['slategray',color],grid=True)
+    ax3=fig.add_subplot(3,1,3)
+    dfkeys.iloc[:,[2,6]].plot(
+        ax=ax3,color=['slategray',color],grid=True)
+    pl.tight_layout(); pl.show()
 
 # Commented out IPython magic to ensure Python compatibility.
 # %cmap_header Data Loading
@@ -126,12 +160,13 @@ output_file.write(input_file.read())
 output_file.close(); input_file.close()
 [names,x_train,x_valid,x_test,y_train,y_valid,y_test]=\
 h5file2data(file_name,img_size)
+num_classes=len(names[1])
 os.remove(file_name)
 
 # Commented out IPython magic to ensure Python compatibility.
 # %cmap_header TF Data Processing
 
-batch_size=64
+batch_size=16
 train=tf.data.Dataset.from_tensor_slices(
     {'input':x_train,
      'label':np.array(y_train[1],dtype='float32')}).batch(batch_size)
@@ -140,16 +175,19 @@ valid=tf.data.Dataset.from_tensor_slices(
      'label':np.array(y_valid[1],dtype='float32')}).batch(batch_size)
 valid_steps=x_valid.shape[0]//batch_size
 
+set(y_train[1])
+
 # Commented out IPython magic to ensure Python compatibility.
 # %cmap_header Models with Adversarial Regularization => MLP
 
-num_classes=len(names[1])
 base_model=tf.keras.Sequential([
     tf.keras.Input((img_size,img_size,3),name='input'),
     tkl.Flatten(),
-    tkl.Dense(96,activation=tf.nn.relu),
+    tkl.Dense(192,activation=tf.nn.relu),
     tkl.BatchNormalization(),    
     tkl.Dense(256,activation=tf.nn.relu),
+    tkl.BatchNormalization(),    
+    tkl.Dense(512,activation=tf.nn.relu),
     tkl.Dense(num_classes,activation=tf.nn.softmax)
 ])
 adv_config=nsl.configs.make_adv_reg_config(
@@ -159,9 +197,12 @@ adv_model=nsl.keras.AdversarialRegularization(
 adv_model.compile(optimizer='adam',metrics=['accuracy'],
                   loss='sparse_categorical_crossentropy')
 
-adv_model.fit(train,validation_data=valid,verbose=2,
-              validation_steps=valid_steps,
-              epochs=30,callbacks=cb(model_weights));
+history=adv_model.fit(
+    train,validation_data=valid,verbose=2,
+    validation_steps=valid_steps,
+    epochs=100,callbacks=cb(model_weights));
+
+keras_history_plot(history)
 
 adv_model.load_weights(model_weights)
 dict(zip(adv_model.metrics_names,adv_model.evaluate(
@@ -198,9 +239,12 @@ adv_model=nsl.keras\
 adv_model.compile(optimizer='adam',metrics=['accuracy'],
                   loss='sparse_categorical_crossentropy')
 
-adv_model.fit(train,validation_data=valid,verbose=2,
-              validation_steps=valid_steps,
-              epochs=30,callbacks=cb(model_weights));
+history=adv_model.fit(
+    train,validation_data=valid,verbose=2,
+    validation_steps=valid_steps,
+    epochs=100,callbacks=cb(model_weights));
+
+keras_history_plot(history)
 
 adv_model.load_weights(model_weights)
 dict(zip(adv_model.metrics_names,adv_model.evaluate(
