@@ -15,11 +15,10 @@ Perfect and complete explanation - [Artistic Style Transfer by Naoki Shibuya](ht
 # %tensorflow_version 1.x
 
 import warnings; warnings.filterwarnings('ignore')
-import urllib,cv2
-from PIL import Image
-import numpy as np,tensorflow as tf,pylab as pl,keras as ks
-from tqdm import tqdm
-fpath='https://olgabelitskaya.github.io/'
+import numpy as np,urllib,cv2
+from PIL import Image; from tqdm import tqdm
+import tensorflow as tf,pylab as pl,keras as ks
+file_path='https://olgabelitskaya.github.io/'
 style_layers=['block1_conv1','block2_conv1','block3_conv1',
               'block4_conv1','block5_conv1']
 
@@ -33,26 +32,25 @@ style_layers=['block1_conv1','block2_conv1','block3_conv1',
 
 """## Displaying Vertical Images"""
 
-def display_images(original,style,fpath=fpath):
-    input_file=urllib.request.urlopen(fpath+original)
-    output_file=open(original,'wb'); 
+def get_image(file_name,file_path=file_path):
+    input_file=urllib.request.urlopen(file_path+file_name)
+    output_file=open(file_name,'wb'); 
     output_file.write(input_file.read())
     output_file.close(); input_file.close()
-    input_file=urllib.request.urlopen(fpath+style)
-    output_file=open(style,'wb'); 
-    output_file.write(input_file.read())
-    output_file.close(); input_file.close()
+def display_images(original,style,file_path=file_path):
+    get_image(original); get_image(style)
     original_img=cv2.imread(original)
     style_img=cv2.imread(style)    
-    pl.figure(1,figsize=(12,4))
+    pl.figure(1,figsize=(12,8))
     pl.subplot(121)
-    pl.title("Shape of the original image: %s"%str(original_img.shape))
+    pl.title('shape of the original image: %s'%str(original_img.shape))
     pl.imshow(cv2.cvtColor(original_img,cv2.COLOR_BGR2RGB))
     pl.subplot(122)
-    pl.title("Shape of the style image: %s"%str(style_img.shape))
-    pl.imshow(cv2.cvtColor(style_img,cv2.COLOR_BGR2RGB)); pl.show()
+    pl.title('shape of the style image: %s'%str(style_img.shape))
+    pl.imshow(cv2.cvtColor(style_img,cv2.COLOR_BGR2RGB))
+    pl.tight_layout(); pl.show()
 
-display_images('HMRM.png','pattern02.png')
+display_images('DG.png','pattern02.png')
 
 """## Preprocessing"""
 
@@ -65,7 +63,7 @@ def rr_img(image,angle,width,height):
     img=cv2.warpAffine(image,M,(nw,nh))
     return cv2.resize(img,(width,height)).astype('float32')
 
-picture01=cv2.imread('HMRM.png').astype('float32')
+picture01=cv2.imread('DG.png').astype('float32')
 pattern01=cv2.imread('pattern02.png').astype('float32')
 picture01=rr_img(picture01,90,500,400)
 pattern01=rr_img(pattern01,0,500,400)
@@ -79,8 +77,7 @@ def preprocess(img):
 def deprocess(img):
     img=img.copy()[0]                        
     img[:,:,0]+=103.939; img[:,:,1]+=116.779; img[:,:,2]+=123.68             
-    img=img[:,:,::-1]              
-    img=np.clip(img,0,255)         
+    img=img[:,:,::-1]; img=np.clip(img,0,255)         
     return img.astype('uint8')
 
 def inputs(original_img,style_img):
@@ -89,10 +86,9 @@ def inputs(original_img,style_img):
     generated_input=tf.placeholder(tf.float32,original_input.shape)
     return original_input,style_input,generated_input
 
-original_input,style_input,generated_input=\
-inputs(picture01,pattern01)
-input_tensor=tf.concat([original_input,style_input,
-                        generated_input],axis=0)
+original_input,style_input,generated_input=inputs(picture01,pattern01)
+input_tensor=tf.concat(
+    [original_input,style_input,generated_input],axis=0)
 input_tensor.shape
 
 """## VGG16 Usage"""
@@ -108,7 +104,8 @@ def calculate_original_loss(layer_dict,original_layer_names):
         layer=layer_dict[name]
         original_features=layer.output[0,:,:,:]  
         generated_features=layer.output[2,:,:,:] 
-        loss+=ks.backend.sum(ks.backend.square(generated_features-original_features))
+        loss+=ks.backend.sum(
+            ks.backend.square(generated_features-original_features))
     return loss/len(original_layer_names)
 def gram_matrix(x):    
     features=ks.backend.batch_flatten(ks.backend.permute_dimensions(x,(2,0,1))) 
@@ -133,25 +130,25 @@ def calculate_variation_loss(x):
     return ks.backend.sum(ks.backend.pow(row_diff+col_diff,1.25))
 
 original_loss=calculate_original_loss(vgg16_layer_dict,['block5_conv2'])
-style_loss=calculate_style_loss(vgg16_layer_dict,style_layers, 
-                                pattern01.shape[0]*pattern01.shape[1])
+style_loss=calculate_style_loss(
+    vgg16_layer_dict,style_layers,pattern01.shape[0]*pattern01.shape[1])
 variation_loss=calculate_variation_loss(generated_input)
 
 """## Generated Images"""
 
-loss=.7*original_loss+1.*style_loss+.1*variation_loss    
+loss=.7*original_loss+1.*style_loss+.2*variation_loss    
 gradients=ks.backend.gradients(loss,generated_input)[0]
 calculate=ks.backend.function([generated_input],[loss,gradients])
 generated_data=preprocess(picture01) 
-for i in tqdm(range(20)):
+for i in tqdm(range(10)):
     _,gradients_value=calculate([generated_data])
     generated_data-=gradients_value*.001
 
-loss=.7*original_loss+1.*style_loss+.1*variation_loss    
+loss=.7*original_loss+1.*style_loss+.2*variation_loss    
 gradients=ks.backend.gradients(loss,generated_input)[0]
 calculate=ks.backend.function([generated_input],[loss,gradients])
 generated_data2=preprocess(picture01) 
-for i in tqdm(range(200)):
+for i in tqdm(range(100)):
     _,gradients_value=calculate([generated_data2])
     generated_data2-=gradients_value*.001
 
@@ -163,16 +160,18 @@ for i in tqdm(range(200)):
 
 generated_image01=deprocess(generated_data)
 generated_image02=deprocess(generated_data2)
-generated_image01=rr_img(generated_image01,270,400,500)/255
-generated_image02=rr_img(generated_image02,270,400,500)/255
-pl.figure(1,figsize=(16,8))
+generated_image01=rr_img(generated_image01,270,400,600)/255
+generated_image02=rr_img(generated_image02,270,400,600)/255
+pl.figure(1,figsize=(12,8))
 pl.subplot(121)
-pl.title("Loss function: 0.7*original_loss+1.0*style_loss+0.1*variation_loss; 20 steps")
+pl.title('loss function: \n'+\
+         '0.7*original_loss+1.0*style_loss+0.2*variation_loss; 10 steps')
 pl.imshow(cv2.cvtColor(generated_image01,cv2.COLOR_BGR2RGB))
 pl.subplot(122)
-pl.title("Loss function: 0.7*original_loss+1.0*style_loss+0.1*variation_loss; 200 steps")
+pl.title('loss function: \n'+\
+         '0.7*original_loss+1.0*style_loss+0.2*variation_loss; 100 steps')
 pl.imshow(cv2.cvtColor(generated_image02,cv2.COLOR_BGR2RGB))
-pl.show()
+pl.tight_layout(); pl.show()
 
 """## Displaying Horizontal Images"""
 
@@ -182,13 +181,10 @@ display_images('BH.png','pattern02.png')
 
 picture01=cv2.imread('BH.png').astype('float32')
 pattern01=cv2.imread('pattern02.png').astype('float32')
-picture01=cv2.resize(picture01,
-                     (pattern01.shape[1],
-                      pattern01.shape[0])).astype('float32')
-original_input,style_input,generated_input=\
-inputs(picture01,pattern01)
-input_tensor=tf.concat([original_input,style_input,
-                        generated_input],axis=0)
+picture01=cv2.resize(
+    picture01,(pattern01.shape[1],pattern01.shape[0])).astype('float32')
+original_input,style_input,generated_input=inputs(picture01,pattern01)
+input_tensor=tf.concat([original_input,style_input,generated_input],axis=0)
 input_tensor.shape
 
 picture01[1]
@@ -213,17 +209,19 @@ loss=.5*original_loss+1.*style_loss+.1*variation_loss
 gradients=ks.backend.gradients(loss,generated_input)[0]
 calculate=ks.backend.function([generated_input],[loss,gradients])
 generated_data2=preprocess(picture01) 
-for i in tqdm(range(7000)):
+for i in tqdm(range(700)):
     _,gradients_value=calculate([generated_data2])
     generated_data2-=gradients_value*.001
 
 generated_image01=deprocess(generated_data)
 generated_image02=deprocess(generated_data2)
-pl.figure(1,figsize=(16,8))
+pl.figure(1,figsize=(12,8))
 pl.subplot(121)
-pl.title("Loss function: 0.5*original_loss+1.0*style_loss+0.1*variation_loss; 70 steps")
+pl.title('loss function: \n'+\
+         '0.5*original_loss+1.0*style_loss+0.1*variation_loss; 70 steps')
 pl.imshow(cv2.cvtColor(generated_image01,cv2.COLOR_BGR2RGB))
 pl.subplot(122)
-pl.title("Loss function: 0.5*original_loss+1.0*style_loss+0.1*variation_loss; 7000 steps")
+pl.title('loss function: \n'+\
+         '0.5*original_loss+1.0*style_loss+0.1*variation_loss; 700 steps')
 pl.imshow(cv2.cvtColor(generated_image02,cv2.COLOR_BGR2RGB))
-pl.show()
+pl.tight_layout(); pl.show()
