@@ -82,7 +82,7 @@ def cmap_header(params):
     var tc=setInterval(function(){
         var now=new Date().getTime();
         var iddoc=document.getElementById('colorized');
-        iddoc.style.color=d3.interpolate"""+cmap+"""(now%(60000)/60000);},1)
+        iddoc.style.color=d3.interpolate"""+cmap+"""((now%60000)/60000);},1)
     </script>"""
     display(HTML(html_str))
 # %cmap_header CODE MODULES & HELPFUL TOOLS|24|Ewert|Turbo
@@ -98,6 +98,24 @@ with output.use_tags('tagged_outputs'):
         sys.stdout.flush(); time.sleep(5)
 output.clear(output_tags='tagged_outputs')
 print('Outputs have cleared')
+
+"""#✒️ Linked Outputs"""
+
+# Commented out IPython magic to ensure Python compatibility.
+# %%javascript
+# const listener=new BroadcastChannel('channel1');
+# listener.onmessage=(msg)=>{
+#   const div=document.createElement('div');
+#   div.textContent=msg.data;
+#   div.style.border='double white';
+#   div.style.width='20%'; 
+#   div.style.padding='20px';
+#   document.body.appendChild(div); };
+
+# Commented out IPython magic to ensure Python compatibility.
+# %%javascript
+# const sender=new BroadcastChannel('channel1');
+# sender.postMessage('😋 😌 😍 😎 😏  HELLO!!!');
 
 """# ✒️ Widgets"""
 
