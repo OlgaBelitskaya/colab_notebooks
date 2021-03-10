@@ -7,99 +7,200 @@ Original file is located at
     https://colab.research.google.com/drive/1pymaadPUhSm0T9N5h44ls-mAcrylfa2F
 
 # 📑 &nbsp; Deep Learning. Cultivar Recognition
-<a href="https://olgabelitskaya.github.io/README.html">&#x1F300; &nbsp; 
-Home Page &nbsp;</a> &nbsp; &nbsp; &nbsp;
-<a href="https://www.instagram.com/olga.belitskaya/">&#x1F300; &nbsp;
-Instagram Posts &nbsp;</a> &nbsp; &nbsp; &nbsp;
-<a href="https://www.pinterest.ru/olga_belitskaya/code-style/">&#x1F300; &nbsp; Pinterest Posts</a><br/>
-For this project, I have created the dataset of <br/>
-776 color images (160x160x3) with tomato cultivars.<br/>
+
+In this project, we'll classify images from the dataset
+<a href='https://www.kaggle.com/olgabelitskaya/tomato-cultivars'>Tomato Cultivars</a>.<br/>
+The content is about 700-800 images (160x160x3) with 15 tomato cultivars<br/>
+stored in the file of <i>Hierarchical Data Format (HDF5)</i>and it's in the building process.<br/>
+In the original dataset, photo files have the extension PNG and they are labeled by file prefixes.<br/>
+We'll preprocess the images, represent their examples, then train neural networks and other algorithms.<br/> 
+We are going to apply:<br/>
+1) <a href='https://scikit-learn.org/stable/'>scikit-learn: Machine Learning in Python</a><br/>
+2) <a href='https://keras.io/'>Keras: a Python Deep Learning Library</a><br/>
+3) <a href='https://pytorch.org/'>PyTorch: an Open Source Machine Learning Framework</a>.<br/>
 ## ✒️ &nbsp; Importing Libraries and Defining Helpful Functions
 """
 
-!pip install --upgrade neural_structured_learning --user
+!python3 -m pip install --upgrade pip \
+--user --quiet --no-warn-script-location
+!python3 -m pip install neural_structured_learning \
+--user --quiet --no-warn-script-location
+!python3 -m pip install tensorflow_hub \
+--user --quiet --no-warn-script-location
 
-spath='/usr/local/lib/python3.6/dist-packages'
+spath='/root/.local/lib/python3.6/'
 import sys; sys.path.append(spath)
 import warnings; warnings.filterwarnings('ignore')
-import h5py,urllib,zipfile,tensorflow as tf
+from IPython.display import display,HTML
+import h5py,urllib,torch,tensorflow as tf
 import pandas as pd,numpy as np,pylab as pl
-import tensorflow_hub as th
-import neural_structured_learning as nsl
+from sklearn.ensemble import RandomForestClassifier as sRFC
+from sklearn.metrics import accuracy_score,hamming_loss
+from sklearn.metrics import classification_report
+import tensorflow_hub as th,neural_structured_learning as nsl
+import tensorflow.keras.callbacks as tkc,\
+tensorflow.keras.utils as tku,tensorflow.keras.layers as tkl
+from torch.utils.data import DataLoader as tdl
+from torch.utils.data import Dataset as tds
+from torchvision import transforms,utils,models
+import torch.nn.functional as tnnf,torch.nn as tnn
+dev=torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+tmodel=models.vgg16(pretrained=True,progress=False)
+from IPython.core.magic import register_line_magic
+#@tf.autograph.experimental.do_not_convert
 
-"""## ✒️ &nbsp; Data Loading and Preprocessing"""
+""" ## ✒️ &nbsp; Data Loading and Preprocessing"""
 
-fpath='https://olgabelitskaya.github.io/'
-zf='TomatoCultivarImages.h5.zip'
-input_file=urllib.request.urlopen(fpath+zf)
-output_file=open(zf,'wb')
-output_file.write(input_file.read())
-output_file.close(); input_file.close()
-zipf=zipfile.ZipFile(zf,'r')
-zipf.extractall(''); zipf.close()
-f=h5py.File(zf[:-4],'r')
-keys=list(f.keys()); print(keys)
+file_path='https://raw.githubusercontent.com/'+\
+          'OlgaBelitskaya/data_kitchen/main/'
+file_name='TomatoCultivars160.h5'; img_size=160
+def get_file(file_path,file_name):
+    input_file=urllib.request.urlopen(file_path+file_name)
+    output_file=open(file_name,'wb')
+    output_file.write(input_file.read())
+    output_file.close(); input_file.close()
+get_file(file_path,file_name)
+with h5py.File(file_name,'r') as f:
+    keys=list(f.keys())
+    display(HTML('<p>file keys: '+', '.join(keys)+'</p>'))
+    images=np.array(f[keys[0]])
+    images=tf.image.resize(images,[img_size,img_size]).numpy()
+    labels=np.array(f[keys[1]])
+    names=[el.decode('utf-8')for el in f[keys[2]]]
+    f.close()
 
-names=['Kumato','Beefsteak','Tigerella',
-       'Roma','Japanese Black Trifele',
-       'Yellow Pear','Sun Gold','Green Zebra',
-       'Cherokee Purple','Oxheart','Blue Berries',
-       'San Marzano','Banana Legs',
-       'German Orange Strawberry','Supersweet 100']
-n_classes=len(names)
-x_test=np.array(f[keys[0]])
-y_test=np.array(f[keys[1]],dtype=np.float32)
-x_train=np.array(f[keys[2]])
-y_train=np.array(f[keys[3]],dtype=np.float32)
-fig=pl.figure(figsize=(10,4))
-n=np.random.randint(1,50)
-for i in range(n,n+5):
-    ax=fig.add_subplot(1,5,i-n+1,\
-    xticks=[],yticks=[],
-    title=names[int(y_test[i])])
-    ax.imshow((x_test[i]))
+N=labels.shape[0]; n=int(.1*N)
+num_classes=len(names)
+shuffle_ids=np.arange(N)
+np.random.RandomState(12).shuffle(shuffle_ids)
+images=images[shuffle_ids]; labels=labels[shuffle_ids]
+x_test,x_valid,x_train=images[:n],images[n:2*n],images[2*n:]
+y_test,y_valid,y_train=labels[:n],labels[n:2*n],labels[2*n:]
+df=pd.DataFrame(
+    [[x_train.shape,x_valid.shape,x_test.shape],
+     [x_train.dtype,x_valid.dtype,x_test.dtype],
+     [y_train.shape,y_valid.shape,y_test.shape],
+     [y_train.dtype,y_valid.dtype,y_test.dtype]],
+    columns=['train','valid','test'],
+    index=['image shape','image type','label shape','label type'])
+def display_imgs(images,labels,names,n=12):
+    fig=pl.figure(figsize=(12,3))
+    for i in range(0,n):
+        ax=fig.add_subplot(2,n//2,i+1,xticks=[],yticks=[])
+        ax.set_title(
+            names[labels[i]],color='slategray',
+            fontdict={'fontsize':'large'})
+        ax.imshow((images[i]))
+    pl.tight_layout(); pl.show()
+display_imgs(images,labels,names); display(df)
 
-n=int(len(x_test)/2)
-x_valid,y_valid=x_test[:n],y_test[:n]
-x_test,y_test=x_test[n:],y_test[n:]
-df=pd.DataFrame([[x_train.shape,x_valid.shape,x_test.shape],
-                 [x_train.dtype,x_valid.dtype,x_test.dtype],
-                 [y_train.shape,y_valid.shape,y_test.shape],
-                 [y_train.dtype,y_valid.dtype,y_test.dtype]],
-                 columns=['train','valid','test'],
-                 index=["images' shape",'image type',
-                        "labels' shape",'label type'])
-df
+class TData(tds):
+    def __init__(self,x,y):   
+        self.x=torch.tensor(x,dtype=torch.float32)
+        self.y=torch.tensor(y,dtype=torch.int32)
+    def __getitem__(self,index):
+        img,lbl=self.x[index],self.y[index]
+        return img,lbl
+    def __len__(self):
+        return self.y.shape[0]
+batch_size2=8
+n_train=batch_size2*(x_train.shape[0]//batch_size2)
+x_train2=np.transpose(x_train,(0,3,1,2))[:n_train]
+print(x_train2.mean(),x_train2.std())
+n_valid=batch_size2*(x_valid.shape[0]//batch_size2)
+x_valid2=np.transpose(x_valid,(0,3,1,2))[:n_valid]
+n_test=batch_size2*(x_test.shape[0]//batch_size2)
+x_test2=np.transpose(x_test,(0,3,1,2))[:n_test]
+random_seed=23
+train2=TData(x_train2,y_train[:n_train])
+valid2=TData(x_valid2,y_valid[:n_valid])
+test2=TData(x_test2,y_test[:n_test])
+dataloaders={'train':tdl(dataset=train2,shuffle=True,batch_size=batch_size2), 
+             'valid':tdl(dataset=valid2,shuffle=True,batch_size=batch_size2),
+             'test':tdl(dataset=test2,shuffle=True,batch_size=batch_size2)}
 
-"""## ✒️ &nbsp; Classification Models
-CNN Based Models with Adversarial Regularization
+# Commented out IPython magic to ensure Python compatibility.
+@register_line_magic
+def display_data_imgs(data):
+    global names
+    for images,labels in dataloaders[data]:  
+        print('image dimensions: %s'%str(images.shape))
+        print('label dimensions: %s'%str(labels.shape))
+        images=[np.transpose(images[i],(1,2,0)) 
+                for i in range(len(images))]
+        display_imgs(images,labels,names,8)
+        break
+# %display_data_imgs valid
+
+"""## ✒️ &nbsp; Classifiers
+### Sklearn Algorithms
 """
 
-batch_size=64; img_size=x_train.shape[1]; epochs=30
+def classifier_fit_score(classifier,x_train,x_test,y_train,y_test):
+    classifier.fit(x_train,y_train)     
+    y_clf_train=classifier.predict(x_train)
+    y_clf_test=classifier.predict(x_test)        
+    acc_clf_train=round(accuracy_score(y_train,y_clf_train),4)
+    acc_clf_test=round(accuracy_score(y_test,y_clf_test),4)
+    loss_clf_train=round(hamming_loss(y_train,y_clf_train),4)
+    loss_clf_test=round(hamming_loss(y_test,y_clf_test),4)  
+    return [y_clf_train,y_clf_test,acc_clf_train,acc_clf_test,
+            loss_clf_train,loss_clf_test]
+[y_srfc_train,y_srfc_test,acc_srfc_train,
+ acc_srfc_test,loss_srfc_train,loss_srfc_test]=\
+classifier_fit_score(
+    sRFC(),x_train.reshape(-1,3*img_size**2),
+    x_test.reshape(-1,3*img_size**2),y_train,y_test)
+print(classification_report(y_test,y_srfc_test))
+
+def plot_predict(y_predict,label_predict,t=30,fig_size=12):
+    pl.figure(figsize=(fig_size,fig_size//4)); x=range(t)
+    pl.scatter(x,y_test[:t],marker='*',s=100,
+               color='slategray',label='Real data')
+    pl.scatter(x,y_predict[:t],marker='v',s=50,
+               color='#348ABD',label=label_predict)
+    pl.xlabel('Observations'); pl.ylabel('Targets') 
+    pl.title('Classifiers. Test Results',color='slategray',
+             fontdict={'fontsize':'large'})
+    pl.legend(loc=2,fontsize=10)
+    pl.tight_layout; pl.show()
+plot_predict(y_srfc_test,'Random Forest')
+
+"""CNN Based Models with Adversarial Regularization
+
+
+"""
+
+batch_size=64; epochs=30
 base_model=tf.keras.Sequential([
-    tf.keras.Input((img_size,img_size,3),name='input'),
-    tf.keras.layers.Conv2D(32,(5,5),padding='same'),
-    tf.keras.layers.Activation('relu'),
-    tf.keras.layers.MaxPooling2D(pool_size=(2,2)),
-    tf.keras.layers.Dropout(.25),
-    tf.keras.layers.Conv2D(196,(5,5)),
-    tf.keras.layers.Activation('relu'),    
-    tf.keras.layers.MaxPooling2D(pool_size=(2,2)),
-    tf.keras.layers.Dropout(.25),
-    tf.keras.layers.GlobalMaxPooling2D(),    
-    tf.keras.layers.Dense(512),
-    tf.keras.layers.Activation('relu'),
-    tf.keras.layers.Dropout(.25),
-    tf.keras.layers.Dense(128),
-    tf.keras.layers.Activation('relu'),
-    tf.keras.layers.Dropout(.25),
-    tf.keras.layers.Dense(n_classes,activation='softmax')
+    tkl.Input((img_size,img_size,3),name='input'),
+    tkl.Conv2D(32,(5,5),padding='same'),
+    tkl.Activation('relu'),
+    tkl.MaxPooling2D(pool_size=(2,2)),
+    tkl.Dropout(.25),
+    tkl.Conv2D(196,(5,5)),
+    tkl.Activation('relu'),    
+    tkl.MaxPooling2D(pool_size=(2,2)),
+    tkl.Dropout(.25),
+    tkl.GlobalMaxPooling2D(),    
+    tkl.Dense(512),
+    tkl.Activation('relu'),
+    tkl.Dropout(.25),
+    tkl.Dense(128),
+    tkl.Activation('relu'),
+    tkl.Dropout(.25),
+    tkl.Dense(num_classes,activation='softmax')
 ])
 adv_config=nsl.configs\
 .make_adv_reg_config(multiplier=.2,adv_step_size=.05)
 adv_model=nsl.keras\
 .AdversarialRegularization(base_model,adv_config=adv_config)
-adv_model.compile(optimizer='adam',
+model_weights='/tmp/checkpoint'
+checkpointer=tkc.ModelCheckpoint(
+    filepath=model_weights,verbose=2,save_weights_only=True,
+    monitor='val_sparse_categorical_accuracy',
+    mode='max',save_best_only=True)
+adv_model.compile(optimizer='nadam',
                   loss='sparse_categorical_crossentropy',
                   metrics=['accuracy'])
 
@@ -110,62 +211,122 @@ valid=tf.data.Dataset.from_tensor_slices(
     {'input':x_valid,'label':y_valid})\
      .batch(batch_size)
 valid_steps=x_valid.shape[0]//batch_size
-adv_model.fit(train,validation_data=valid,verbose=2,
-              validation_steps=valid_steps,epochs=epochs)
+adv_model.fit(train,validation_data=valid,
+              verbose=2,callbacks=[checkpointer],
+              validation_steps=valid_steps,epochs=epochs);
 
+adv_model.load_weights(model_weights)
 adv_model.evaluate({'input':x_test,'label':y_test})
 
-"""TFHub Models"""
+"""### TFHub Models"""
 
-#y_train,y_valid,y_test=\
-#np.array(y_train,dtype='int32'),\
-#np.array(y_valid,dtype='int32'),\
-#np.array(y_test,dtype='int32')
-
-def premodel(pix,den,mh,lbl):
+def premodel(img_size,den,mh,num_classes):
     model=tf.keras.Sequential([
-        tf.keras.layers.Input((pix,pix,3),
-                              name='input'),
+        tf.keras.layers.Input((img_size,img_size,3),name='input'),
         th.KerasLayer(mh,trainable=True),
-        tf.keras.layers.Flatten(),
-        tf.keras.layers.Dense(den,activation='relu'),
-        tf.keras.layers.Dropout(rate=.5),
-        tf.keras.layers.Dense(lbl,activation='softmax')])
-    model.compile(optimizer='adam',metrics=['accuracy'],
+        tkl.Flatten(),
+        tkl.Dense(den,activation='relu'),
+        tkl.Dropout(rate=.5),
+        tkl.Dense(num_classes,activation='softmax')])
+    model.compile(optimizer='nadam',metrics=['accuracy'],
                   loss='sparse_categorical_crossentropy')
     display(model.summary())
     return model
-def cb(fw):
-    early_stopping=tf.keras.callbacks\
-    .EarlyStopping(monitor='val_loss',patience=20,verbose=2)
-    checkpointer=tf.keras.callbacks\
-    .ModelCheckpoint(filepath=fw,save_best_only=True,verbose=2)
-    lr_reduction=tf.keras.callbacks\
-    .ReduceLROnPlateau(monitor='val_loss',verbose=2,
-                       patience=5,factor=.8)
+def cb(model_weights):
+    early_stopping=tkc.EarlyStopping(
+        monitor='val_loss',patience=20,verbose=2)
+    checkpointer=tkc.ModelCheckpoint(
+    filepath=model_weights,verbose=2,save_weights_only=True,
+    monitor='val_accuracy',mode='max',save_best_only=True)
+    lr_reduction=tkc.ReduceLROnPlateau(
+        monitor='val_loss',verbose=2,patience=5,factor=.8)
     return [checkpointer,early_stopping,lr_reduction]
 
-[handle_base,pixels]=["mobilenet_v2_075_160",160]
-mhandle="https://tfhub.dev/google/imagenet/{}/feature_vector/4"\
-.format(handle_base)
-fw='weights.best.hdf5'
-
-model=premodel(pixels,1024,mhandle,n_classes)
-history=model.fit(x=x_train,y=y_train,batch_size=32,
-                  epochs=70,callbacks=cb(fw),
-                  validation_data=(x_valid,y_valid))
-
-model.load_weights(fw)
-model.evaluate(x_test,y_test)
-
-[handle_base,pixels]=["inception_v3",160]
-mhandle="https://tfhub.dev/google/imagenet/{}/classification/4"\
+handle_base='mobilenet_v2_075_160'
+mhandle='https://tfhub.dev/google/imagenet/{}/feature_vector/4'\
 .format(handle_base)
 
-model=premodel(pixels,1024,mhandle,n_classes)
+model=premodel(img_size,1024,mhandle,num_classes)
 history=model.fit(x=x_train,y=y_train,batch_size=32,
-                  epochs=70,callbacks=cb(fw),
+                  epochs=70,callbacks=cb(model_weights),
                   validation_data=(x_valid,y_valid))
 
-model.load_weights(fw)
+model.load_weights(model_weights)
 model.evaluate(x_test,y_test)
+
+y_mob_test=np.argmax(model.predict(x_test),axis=-1)
+plot_predict(y_mob_test,'MobileNet')
+
+handle_base='inception_v3'
+mhandle='https://tfhub.dev/google/imagenet/{}/classification/4'\
+.format(handle_base)
+
+model=premodel(img_size,1024,mhandle,num_classes)
+history=model.fit(x=x_train,y=y_train,batch_size=32,
+                  epochs=70,callbacks=cb(model_weights),
+                  validation_data=(x_valid,y_valid))
+
+model.load_weights(model_weights)
+model.evaluate(x_test,y_test)
+
+"""### TorchVision Models"""
+
+for param in tmodel.parameters(): param.requires_grad=False
+tmodel.classifier[3].requires_grad=True
+def model_acc(model,data_loader):
+    correct_preds,num_examples=0,0
+    for features,targets in data_loader:
+        features=features.to(dev)
+        targets=targets.to(dev).long()
+        logits=model(features)
+        _,pred_labels=torch.max(logits,1)
+        num_examples+=targets.size(0)
+        correct_preds+=(pred_labels==targets).sum()        
+    return correct_preds.float()/num_examples*100
+def epoch_loss(model,data_loader):
+    model.eval()
+    curr_loss,num_examples=0.,0
+    with torch.no_grad():
+        for features,targets in data_loader:
+            features=features.to(dev)
+            targets=targets.to(dev).long()
+            logits=model(features)
+            loss=tnnf.cross_entropy(logits,targets,reduction='sum')
+            num_examples+=targets.size(0)
+            curr_loss+=loss
+        return curr_loss/num_examples
+
+# Commented out IPython magic to ensure Python compatibility.
+@register_line_magic
+def train_run(epochs):
+    epochs=int(epochs)
+    st1='epoch: %03d/%03d || batch: %03d/%03d || cost: %.4f'
+    for epoch in range(epochs):
+        tmodel.train()
+        for batch_ids,(features,targets) \
+        in enumerate(dataloaders['train']):        
+            features=features.to(dev)
+            targets=targets.to(dev).long()
+            logits=tmodel(features)
+            cost=tnnf.cross_entropy(logits,targets)
+            optimizer.zero_grad(); cost.backward()
+            optimizer.step()
+            if not batch_ids%20:
+                print(st1%(epoch+1,epochs,batch_ids,
+                      len(dataloaders['train']),cost))
+        tmodel.eval()
+        with torch.set_grad_enabled(False):
+            print('epoch: %03d/%03d'%(epoch+1,epochs))
+            print('valid acc/loss: %.2f%%/%.2f'%\
+                  (model_acc(tmodel,dataloaders['valid']),
+                   epoch_loss(tmodel,dataloaders['valid'])))
+tmodel.classifier[6]=tnn.Sequential(
+    tnn.Linear(4096,256),tnn.ReLU(),
+    tnn.Dropout(.5),tnn.Linear(256,num_classes))
+tmodel=tmodel.to(dev)
+optimizer=torch.optim.Adam(tmodel.parameters())
+# %train_run 10
+
+tmodel.eval()
+with torch.set_grad_enabled(False):
+    print('test acc: %.2f%%'%model_acc(tmodel,dataloaders['test']))
