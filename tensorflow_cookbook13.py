@@ -191,23 +191,16 @@ def Generator(img_size=img_size,channels=channels):
     inputs=tkl.Input(shape=[img_size,img_size,channels])
     downsample_stack=[
         downsample(64,4,apply_batchnorm=False),
-        downsample(128,4), 
-        downsample(256,4), 
-        downsample(512,4), 
-        downsample(512,4),
-        downsample(512,4),
-        downsample(512,4),
-        downsample(512,4),
-    ]
+        downsample(192,4),downsample(256,4), 
+        downsample(512,4),downsample(1024,4),
+        downsample(1024,4),downsample(1024,4),
+        downsample(1024,4),]
     upsample_stack=[
-        upsample(512,4,apply_dropout=True),
-        upsample(512,4,apply_dropout=True),
-        upsample(512,4,apply_dropout=True),
-        upsample(512,4),
-        upsample(256,4),
-        upsample(128,4),
-        upsample(64,4),
-    ]
+        upsample(1024,4,apply_dropout=True),
+        upsample(1024,4,apply_dropout=True),
+        upsample(1024,4,apply_dropout=True),
+        upsample(512,4),upsample(256,4),
+        upsample(192,4),upsample(64,4),]
     initializer=tf.random_normal_initializer(0.,.02)
     last=tkl.Conv2DTranspose(
         channels,4,strides=2,padding='same',
@@ -249,7 +242,7 @@ def Discriminator(img_size=img_size,channels=channels):
                   name='target_img')
     x=tkl.concatenate([inp,tar])
     ds1=downsample(64,4,False)(x)
-    ds2=downsample(128,4)(ds1)
+    ds2=downsample(192,4)(ds1)
     ds3=downsample(256,4)(ds2)
     zero_pad1=tkl.ZeroPadding2D()(ds3)
     conv=tkl.Conv2D(
