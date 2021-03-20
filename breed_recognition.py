@@ -7,23 +7,29 @@ Original file is located at
     https://colab.research.google.com/drive/1uB1PuT_uNGM2tv88ZDkIj6Dhi_Rf91PA
 
 # 📑 &nbsp; Deep Learning. Breed Recognition
-<a href="https://olgabelitskaya.github.io/README.html">&#x1F300; &nbsp; 
-Home Page &nbsp;</a> &nbsp; &nbsp; &nbsp;
-<a href="https://www.instagram.com/olga.belitskaya/">&#x1F300; &nbsp;
-Instagram Posts &nbsp;</a> &nbsp; &nbsp; &nbsp;
-<a href="https://www.pinterest.ru/olga_belitskaya/code-style/">&#x1F300; &nbsp; Pinterest Posts</a><br/>
-For this project, I have created the dataset of 
-about 500 color images (160x160x3) with horse breeds.<br/>
-## ✒️ &nbsp; Importing Libraries and Defining Helpful Functions
+<a href='https://olgabelitskaya.gitlab.io/index.html'>
+&#x1F300; &nbsp; Homepage &nbsp; &nbsp;</a>
+<a href='https://olgabelitskaya.gitlab.io/deep_learning_projects/index.html'>
+&#x1F300; &nbsp; Project List &nbsp; &nbsp;</a>
+<a href='https://olgabelitskaya.github.io/README.html'>
+&#x1F300; &nbsp; GitHub Pages &nbsp; &nbsp;</a>
+<a href='https://olgabelitskaya.gitlab.io/deep_learning_projects/DL_PP5_0_SMC.html'>&#x1F300; &nbsp; Main &nbsp; &nbsp;</a><br/>
+<a href='https://www.instagram.com/olga.belitskaya/'>
+&#x1F300; &nbsp; Instagram Posts &nbsp; &nbsp;</a>
+<a href='https://www.pinterest.ru/olga_belitskaya/code-style/'>
+&#x1F300; &nbsp; Pinterest Posts</a><br/>
+For this project, I have created the dataset of about color images with horse breeds.<br/>
+
+## ✒️ &nbsp; Modules, Settings, & Helpful Functions
 """
 
-!pip install --upgrade neural_structured_learning \
+!python3 -m pip install neural_structured_learning \
 --user --quiet --no-warn-script-location
 
 sys_path='/root/.local/lib/python3.6/site-packages'
 import sys; sys.path.append(sys_path)
 import warnings; warnings.filterwarnings('ignore')
-import h5py,urllib,torch,os
+import h5py,urllib,torch,os,imageio
 import tensorflow as tf,tensorflow_hub as th
 import pandas as pd,numpy as np,pylab as pl,sympy as sp
 import tensorflow.keras.layers as tkl
@@ -35,13 +41,19 @@ from torchvision import transforms,utils,models
 import torch.nn.functional as tnnf,torch.nn as tnn
 dev=torch.device('cuda:0' \
 if torch.cuda.is_available() else 'cpu')
-from IPython.core.display import display,HTML
+from IPython.core.display import display,HTML,Image
 from IPython.core.magic import register_line_magic
+
+file_path='https://raw.githubusercontent.com/OlgaBelitskaya/data_kitchen/main/'
+file_name='HorseBreeds160.h5'
+img_path='https://olgabelitskaya.gitlab.io/data/horses/'
+img_files=['00_05_001.png','00_06_001.png']
+img_size=64; data_img_size=160; max_img_size=224
+batch_size2=8; img_size2=64
+steps=60
 
 """ ## ✒️ &nbsp; Data Loading and Preprocessing"""
 
-file_path='https://raw.githubusercontent.com/OlgaBelitskaya/data_kitchen/main/'
-file_name='HorseBreeds160.h5'; img_size=int(160)
 def get_file(file_path,file_name):
     input_file=urllib.request.urlopen(file_path+file_name)
     output_file=open(file_name,'wb')
@@ -50,16 +62,15 @@ def get_file(file_path,file_name):
 get_file(file_path,file_name)
 with h5py.File(file_name,'r') as f:
     keys=list(f.keys())
-    sp.pretty_print(
-        'file keys: '+', '.join(keys))
+    sp.pretty_print('file keys: '+', '.join(keys))
     images=np.array(f[keys[0]])
-    images=tf.image.resize(images,[img_size,img_size]).numpy()
+    images=tf.image.resize(
+        images,[data_img_size,data_img_size]).numpy()
     labels=np.array(f[keys[1]])
-    names=[el.decode('utf-8')for el in f[keys[2]]]
+    names=[el.decode('utf-8') for el in f[keys[2]]]
     f.close()
 
-N=labels.shape[0]; n=int(.1*N)
-num_classes=len(names); start=int(100) 
+N=labels.shape[0]; n=int(.1*N); num_classes=len(names)
 shuffle_ids=np.arange(N)
 np.random.RandomState(12).shuffle(shuffle_ids)
 images=images[shuffle_ids]; labels=labels[shuffle_ids]
@@ -72,16 +83,17 @@ df=pd.DataFrame(
      [y_train.dtype,y_valid.dtype,y_test.dtype]],
     columns=['train','valid','test'],
     index=['image shape','image type','label shape','label type'])
-def display_imgs(images,labels,names,start):
-    fig=pl.figure(figsize=(12,6)); n=np.random.randint(0,start-1)
-    for i in range(n,n+6):
-        ax=fig.add_subplot(2,3,i-n+1,xticks=[],yticks=[])
-        ax.set_title(
-            names[labels[i]],color='#aa33ff',
-            fontdict={'fontsize':'large'})
+def display_imgs(images,labels,names,fig_size=16,start0=False):
+    fig=pl.figure(figsize=(fig_size,fig_size/2.5))
+    randi=np.random.randint(0,200)
+    if start0==True: randi=0
+    for i in range(randi,randi+8):
+        ax=fig.add_subplot(2,4,i-randi+1,xticks=[],yticks=[])
+        ax.set_title(names[labels[i]],color='#aa33ff',
+                     fontdict={'fontsize':'large'})
         ax.imshow((images[i]))
     pl.tight_layout(); pl.show()
-display_imgs(images,labels,names,start); display(df)
+display_imgs(images,labels,names); display(df)
 
 class TData(tds):
     def __init__(self,x,y):   
@@ -92,7 +104,6 @@ class TData(tds):
         return img,lbl
     def __len__(self):
         return self.y.shape[0]
-batch_size2=int(8); img_size2=int(64)
 n_train=batch_size2*(x_train.shape[0]//batch_size2)
 x_train2=tf.image.resize(x_train,[img_size2,img_size2])
 x_train2=np.transpose(x_train2.numpy(),(0,3,1,2))[:n_train]
@@ -120,7 +131,7 @@ def display_data_imgs(data):
         print('Label dimensions: %s'%str(labels.shape))
         images=[np.transpose(images[i],(1,2,0)) 
                 for i in range(len(images))]
-        display_imgs(images,labels,names,int(2))
+        display_imgs(images,labels,names,fig_size=8,start0=True)
         break
 # %display_data_imgs valid
 
@@ -151,8 +162,7 @@ def premodel(pix,den,mh,lbl,activ,loss):
         tkl.Dense(den,activation='relu'),
         tkl.Dropout(rate=.5),
         tkl.Dense(lbl,activation=activ)])
-    model.compile(optimizer='adam',
-                  metrics=['accuracy'],loss=loss)
+    model.compile(optimizer='adam',metrics=['accuracy'],loss=loss)
     display(model.summary())
     return model
 
@@ -168,7 +178,7 @@ checkpointer=tkc.ModelCheckpoint(
     monitor='val_accuracy',mode='max',save_best_only=True)
 lr_reduction=tkc.ReduceLROnPlateau(
     monitor='val_loss',verbose=2,patience=5,factor=.8)
-kmodel=premodel(img_size,2048,mhandle,num_classes,
+kmodel=premodel(data_img_size,2048,mhandle,num_classes,
                 'softmax','sparse_categorical_crossentropy')
 history=kmodel.fit(x=x_train,y=y_train,batch_size=16,epochs=50,
                    callbacks=[checkpointer,early_stopping,lr_reduction],
@@ -177,57 +187,54 @@ history=kmodel.fit(x=x_train,y=y_train,batch_size=16,epochs=50,
 keras_history_plot(history)
 
 kmodel.load_weights(fw)
-sp.pretty_print(kmodel.evaluate(x_test,y_test,verbose=int(0)))
+sp.pretty_print(kmodel.evaluate(x_test,y_test,verbose=0))
 y_test_predict=np.argmax(kmodel.predict(x_test),axis=-1)
-
 y_test_predict,y_test
 
-fig=pl.figure(figsize=(12,6))
+fig=pl.figure(figsize=(16,16/2.5))
 randch=np.random.choice(
-    x_test.shape[0],size=6,replace=False)
+    x_test.shape[0],size=8,replace=False)
 for i,idx in enumerate(randch):
-    ax=fig.add_subplot(2,3,i+1,xticks=[],yticks=[])
+    ax=fig.add_subplot(2,4,i+1,xticks=[],yticks=[])
     ax.imshow(np.squeeze(x_test[idx]))
     pred_idx=y_test_predict[idx]
     true_idx=y_test[idx]
     ax.set_title('{} \n({})'.format(
         names[pred_idx],names[true_idx]),
-        color=('#aa33ff' if pred_idx==true_idx else 'darkred'))
+        color=('#aa33ff' if pred_idx==true_idx else '#ff3333'))
 pl.show()
 
 def kmodel(leaky_alpha,num_classes=num_classes):
     model=tf.keras.Sequential()
     model.add(tkl.Conv2D(
-        int(32),(int(5),int(5)),padding='same', 
-        input_shape=x_train.shape[int(1):]))
+        32,(5,5),padding='same', 
+        input_shape=[data_img_size,data_img_size,3]))
     model.add(tkl.LeakyReLU(alpha=leaky_alpha))    
-    model.add(tkl.MaxPooling2D(pool_size=(int(2),int(2))))
-    model.add(tkl.Dropout(float(.25)))
-    model.add(tkl.Conv2D(int(196),(int(5),int(5))))
+    model.add(tkl.MaxPooling2D(pool_size=(2,2)))
+    model.add(tkl.Dropout(.25))
+    model.add(tkl.Conv2D(196,(5,5)))
     model.add(tkl.LeakyReLU(alpha=leaky_alpha))    
-    model.add(tkl.MaxPooling2D(pool_size=(int(2),int(2))))
-    model.add(tkl.Dropout(float(.25)))   
+    model.add(tkl.MaxPooling2D(pool_size=(2,2)))
+    model.add(tkl.Dropout(.25))   
     model.add(tkl.GlobalMaxPooling2D())     
-    model.add(tkl.Dense(int(1024)))
+    model.add(tkl.Dense(1024))
     model.add(tkl.LeakyReLU(alpha=leaky_alpha))
-    model.add(tkl.Dropout(float(.5)))     
+    model.add(tkl.Dropout(.5))     
     model.add(tkl.Dense(num_classes))
     model.add(tkl.Activation('softmax'))   
     model.compile(loss='sparse_categorical_crossentropy',
                   optimizer='nadam',metrics=['accuracy'])   
     return model
-kmodel=kmodel(float(.01))
+kmodel=kmodel(.01)
 
 early_stopping=tkc.EarlyStopping(
-    monitor='val_loss',patience=int(20),verbose=int(2))
+    monitor='val_loss',patience=20,verbose=2)
 checkpointer=tkc.ModelCheckpoint(
-    filepath=fw,verbose=int(0),save_weights_only=True,
+    filepath=fw,verbose=0,save_weights_only=True,
     monitor='val_accuracy',mode='max',save_best_only=True)
 lr_reduction=tkc.ReduceLROnPlateau(
-    monitor='val_loss',verbose=int(2),
-    patience=int(5),factor=float(.8))
-history=kmodel.fit(x_train,y_train,epochs=int(70),
-                   batch_size=int(16),verbose=int(2),
+    monitor='val_loss',verbose=2,patience=5,factor=.8)
+history=kmodel.fit(x_train,y_train,epochs=70,batch_size=16,verbose=2,
                    validation_data=(x_valid,y_valid),
                    callbacks=[checkpointer,early_stopping,lr_reduction])
 
@@ -237,22 +244,23 @@ kmodel.load_weights(fw)
 sp.pretty_print(kmodel.evaluate(x_test,y_test,verbose=int(0)))
 y_test_predict=np.argmax(kmodel.predict(x_test),axis=-1)
 
-fig=pl.figure(figsize=(12,6))
-randch=np.random.choice(x_test.shape[0],size=6,replace=False)
+fig=pl.figure(figsize=(16,16/2.5))
+randch=np.random.choice(
+    x_test.shape[0],size=8,replace=False)
 for i,idx in enumerate(randch):
-    ax=fig.add_subplot(2,3,i+1,xticks=[],yticks=[])
+    ax=fig.add_subplot(2,4,i+1,xticks=[],yticks=[])
     ax.imshow(np.squeeze(x_test[idx]))
     pred_idx=y_test_predict[idx]
     true_idx=y_test[idx]
-    ax.set_title('{} \n({})'.format(names[pred_idx],names[true_idx]),
-                 color=('#aa33ff' if pred_idx==true_idx else 'darkred'))
+    ax.set_title('{} \n({})'.format(
+        names[pred_idx],names[true_idx]),
+        color=('#aa33ff' if pred_idx==true_idx else '#ff3333'))
 pl.show()
 
 """### PyTorch Models"""
 
 tmodel=models.vgg16(pretrained=True)
-for param in tmodel.parameters():
-    param.requires_grad=False
+for param in tmodel.parameters(): param.requires_grad=False
 tmodel.classifier[3].requires_grad=True
 tmodel
 
@@ -328,14 +336,118 @@ def show_image(img):
     pl.imshow(np.transpose(npimg,tr))
     pl.xticks([]); pl.show()
 with torch.no_grad():
-    for i,(images,labels) in enumerate(dataloaders['test']):
-        show_image(utils.make_grid(images[:3]))
+    for i,(timages,tlabels) in enumerate(dataloaders['test']):
+        show_image(utils.make_grid(timages[:3]))
         print('\ntrue labels: ',
-              ''.join('%20s'%names[labels[j]] for j in range(3)))
-        images=images.to(dev)
-        labels=labels.to(dev)
-        outputs=tmodel(images)
-        _,preds=torch.max(outputs,int(1))
+              ''.join('%20s'%names[tlabels[j]] for j in range(3)))
+        timages=timages.to(dev)
+        tlabels=tlabels.to(dev)
+        outputs=tmodel(timages)
+        _,tpreds=torch.max(outputs,1)
         print('\npredictions: ',
-             ''.join('%20s'%names[preds[j]] for j in range(3)))
+             ''.join('%20s'%names[tpreds[j]] for j in range(3)))
         if i==1: break
+
+"""## ✒️ &nbsp; Super Resolution"""
+
+def esrgantf2_superresolution(img,img_size=50):
+    model=th.load('https://tfhub.dev/captain-pool/esrgan-tf2/1')
+    func=model.signatures[tf.saved_model.DEFAULT_SERVING_SIGNATURE_DEF_KEY]
+    func.inputs[0].set_shape([1,img_size,img_size,3])
+    converter=tf.lite.TFLiteConverter.from_concrete_functions([func])
+    converter.optimizations=[tf.lite.Optimize.DEFAULT]
+    tflite_model=converter.convert()
+    with tf.io.gfile.GFile('ESRGAN.tflite','wb') as f:
+        f.write(tflite_model)
+    esrgan_model_path='./ESRGAN.tflite'
+    if img.mean()<1.: img=img*255.
+    lr=tf.image.resize(img,[img_size,img_size])
+    lr=tf.expand_dims(lr.numpy()[:,:,:int(3)],axis=int(0))
+    lr=tf.cast(lr,tf.float32)
+    interpreter=tf.lite.Interpreter(model_path=esrgan_model_path)
+    interpreter.allocate_tensors()
+    input_details=interpreter.get_input_details()
+    output_details=interpreter.get_output_details()
+    interpreter.set_tensor(input_details[0]['index'],lr)
+    interpreter.invoke()
+    output_data=interpreter.get_tensor(output_details[0]['index'])
+    sr=tf.squeeze(output_data,axis=0)
+    sr=tf.clip_by_value(sr,0,255)
+    sr=tf.round(sr); sr=tf.cast(sr,tf.uint8)
+    lr=tf.cast(tf.squeeze(lr,axis=0),tf.uint8)
+    return lr,sr
+img=images[0]
+lr,sr=esrgantf2_superresolution(img,img_size)
+
+def low2superbicubic_imgs(img,lr,sr,img_size=img_size):
+    pl.figure(figsize=(8,8))
+    pl.subplot(2,2,1); pl.title('HR'); pl.imshow(img)
+    pl.subplot(2,2,2); pl.title('LR'); pl.imshow(lr.numpy())
+    pl.subplot(2,2,3); pl.title('ESRGAN x4'); pl.imshow(sr.numpy())
+    bicubic=tf.image.resize(
+        lr,[img_size*int(4),img_size*int(4)],tf.image.ResizeMethod.BICUBIC)
+    bicubic_contrast=tf.image.adjust_contrast(bicubic,float(.8))
+    bicubic_contrast=tf.cast(bicubic_contrast,tf.uint8)
+    pl.subplot(2,2,4); pl.title('Bicubic & Contrast')
+    pl.imshow(bicubic_contrast.numpy())
+    pl.tight_layout(); pl.show()
+low2superbicubic_imgs(img,lr,sr)
+
+"""## ✒️  Color Interpolation"""
+
+def interpolate_hypersphere(v1,v2,steps):
+    v1norm=tf.norm(v1); v2norm=tf.norm(v2)
+    vectors=[]; v2normalized=v2*(v1norm/v2norm)
+    for step in range(steps):
+        interpolated=v1+(v2normalized-v1)*step/(steps-int(1))
+        interpolated_norm=tf.norm(interpolated)
+        interpolated_normalized=interpolated*(v1norm/interpolated_norm)
+        vectors.append(interpolated_normalized)
+    return tf.stack(vectors).numpy()
+imgs=tf.concat([interpolate_hypersphere(x_valid[0],x_test[0],steps),
+                interpolate_hypersphere(x_test[0],x_valid[0],steps)],
+               axis=0)
+
+file_name='pic.gif'
+imgs=np.array(imgs*float(255),dtype=np.uint8)\
+.reshape(2*steps,data_img_size,data_img_size,3)
+imageio.mimsave(file_name,imgs)
+Image(open('pic.gif','rb').read())
+
+"""## ✒️  Object Recognition"""
+
+from tensorflow.keras.applications import vgg19,VGG19
+mvgg19=VGG19(include_top=True,weights='imagenet')
+
+def load_img(img_file,max_img_size=max_img_size):
+    img=tf.io.read_file(img_file)
+    img=tf.image.decode_image(img,channels=3)
+    img=tf.image.convert_image_dtype(img,tf.float32)
+    shape=tf.cast(tf.shape(img)[:-int(1)],tf.float32)
+    scale=max_img_size/max(shape)
+    new_shape=tf.cast(shape*scale,tf.int32)
+    img=tf.image.resize(img,new_shape)
+    return img[tf.newaxis,:]
+def tensor2img(tensor):
+    if np.ndim(tensor)>int(3):
+        assert tensor.shape[0]==1
+        tensor=tensor[0]
+    pl.figure(figsize=(3,3)); pl.imshow(tensor)
+    pl.tight_layout(); pl.show()
+for f in img_files:
+    input_file=urllib.request.urlopen(img_path+f)
+    output_file=open(f,'wb')
+    output_file.write(input_file.read())
+    output_file.close(); input_file.close()
+
+for i in range(len(img_files)):
+    content_img=load_img(img_files[i])
+    x=vgg19.preprocess_input(content_img*255)
+    prediction_probabilities=mvgg19(x)
+    predict_top5=vgg19.decode_predictions(
+        prediction_probabilities.numpy())[0]
+    sp.pretty_print('example #%d'%(i+1))
+    display(pd.DataFrame(
+        [[class_name,prob] for (number,class_name,prob) in predict_top5],
+        columns=['class name','prob']))
+    tensor2img(content_img)
