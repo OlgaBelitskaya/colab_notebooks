@@ -25,8 +25,6 @@ We are going to apply:<br/>
 --user --quiet --no-warn-script-location
 !python3 -m pip install neural_structured_learning \
 --user --quiet --no-warn-script-location
-!python3 -m pip install tensorflow_hub \
---user --quiet --no-warn-script-location
 
 spath='/root/.local/lib/python3.6/'
 import sys; sys.path.append(spath)
@@ -65,8 +63,8 @@ with h5py.File(file_name,'r') as f:
     display(HTML('<p>file keys: '+', '.join(keys)+'</p>'))
     images=np.array(f[keys[0]])
     images=tf.image.resize(images,[img_size,img_size]).numpy()
-    labels=np.array(f[keys[1]])
-    names=[el.decode('utf-8')for el in f[keys[2]]]
+    labels=np.array(f[keys[1]],dtype='float32')
+    names=[el.decode('utf-8') for el in f[keys[2]]]
     f.close()
 
 N=labels.shape[0]; n=int(.1*N)
@@ -88,7 +86,7 @@ def display_imgs(images,labels,names,n=12):
     for i in range(0,n):
         ax=fig.add_subplot(2,n//2,i+1,xticks=[],yticks=[])
         ax.set_title(
-            names[labels[i]],color='slategray',
+            names[int(labels[i])],color='slategray',
             fontdict={'fontsize':'large'})
         ax.imshow((images[i]))
     pl.tight_layout(); pl.show()
@@ -189,8 +187,7 @@ base_model=tf.keras.Sequential([
     tkl.Dense(128),
     tkl.Activation('relu'),
     tkl.Dropout(.25),
-    tkl.Dense(num_classes,activation='softmax')
-])
+    tkl.Dense(num_classes,activation='softmax')])
 adv_config=nsl.configs\
 .make_adv_reg_config(multiplier=.2,adv_step_size=.05)
 adv_model=nsl.keras\
@@ -200,16 +197,13 @@ checkpointer=tkc.ModelCheckpoint(
     filepath=model_weights,verbose=2,save_weights_only=True,
     monitor='val_sparse_categorical_accuracy',
     mode='max',save_best_only=True)
-adv_model.compile(optimizer='nadam',
-                  loss='sparse_categorical_crossentropy',
-                  metrics=['accuracy'])
+adv_model.compile(optimizer='nadam',metrics=['accuracy'],
+                  loss='sparse_categorical_crossentropy')
 
 train=tf.data.Dataset.from_tensor_slices(
-    {'input':x_train,'label':y_train})\
-     .batch(batch_size)
+    {'input':x_train,'label':y_train}).batch(batch_size)
 valid=tf.data.Dataset.from_tensor_slices(
-    {'input':x_valid,'label':y_valid})\
-     .batch(batch_size)
+    {'input':x_valid,'label':y_valid}).batch(batch_size)
 valid_steps=x_valid.shape[0]//batch_size
 adv_model.fit(train,validation_data=valid,
               verbose=2,callbacks=[checkpointer],
