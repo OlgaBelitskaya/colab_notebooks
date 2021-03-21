@@ -48,9 +48,9 @@ file_path='https://raw.githubusercontent.com/OlgaBelitskaya/data_kitchen/main/'
 file_name='HorseBreeds160.h5'
 img_path='https://olgabelitskaya.gitlab.io/data/horses/'
 img_files=['00_05_001.png','00_06_001.png']
-img_size=64; data_img_size=160; max_img_size=224
+img_size=64; data_img_size=160
 batch_size2=8; img_size2=64
-steps=60
+max_img_size=224; steps=60
 
 """ ## ✒️ &nbsp; Data Loading and Preprocessing"""
 
@@ -66,7 +66,7 @@ with h5py.File(file_name,'r') as f:
     images=np.array(f[keys[0]])
     images=tf.image.resize(
         images,[data_img_size,data_img_size]).numpy()
-    labels=np.array(f[keys[1]])
+    labels=np.array(f[keys[1]],dtype='float32')
     names=[el.decode('utf-8') for el in f[keys[2]]]
     f.close()
 
@@ -89,7 +89,7 @@ def display_imgs(images,labels,names,fig_size=16,start0=False):
     if start0==True: randi=0
     for i in range(randi,randi+8):
         ax=fig.add_subplot(2,4,i-randi+1,xticks=[],yticks=[])
-        ax.set_title(names[labels[i]],color='#aa33ff',
+        ax.set_title(names[int(labels[i])],color='#aa33ff',
                      fontdict={'fontsize':'large'})
         ax.imshow((images[i]))
     pl.tight_layout(); pl.show()
@@ -198,11 +198,13 @@ for i,idx in enumerate(randch):
     ax=fig.add_subplot(2,4,i+1,xticks=[],yticks=[])
     ax.imshow(np.squeeze(x_test[idx]))
     pred_idx=y_test_predict[idx]
-    true_idx=y_test[idx]
+    true_idx=int(y_test[idx])
     ax.set_title('{} \n({})'.format(
         names[pred_idx],names[true_idx]),
         color=('#aa33ff' if pred_idx==true_idx else '#ff3333'))
 pl.show()
+
+"""### CNN Like"""
 
 def kmodel(leaky_alpha,num_classes=num_classes):
     model=tf.keras.Sequential()
@@ -251,11 +253,56 @@ for i,idx in enumerate(randch):
     ax=fig.add_subplot(2,4,i+1,xticks=[],yticks=[])
     ax.imshow(np.squeeze(x_test[idx]))
     pred_idx=y_test_predict[idx]
-    true_idx=y_test[idx]
+    true_idx=int(y_test[idx])
     ax.set_title('{} \n({})'.format(
         names[pred_idx],names[true_idx]),
         color=('#aa33ff' if pred_idx==true_idx else '#ff3333'))
 pl.show()
+
+"""### CNN Based Models with Adversarial Regularization"""
+
+base_model=tf.keras.Sequential([
+    tkl.Input((data_img_size,data_img_size,3),name='input'),
+    tkl.Conv2D(32,(5,5),padding='same'),
+    tkl.LeakyReLU(alpha=.1),
+    tkl.MaxPooling2D(pool_size=(2,2)),
+    tkl.Dropout(.25),
+    tkl.Conv2D(196,(5,5)),
+    tkl.LeakyReLU(alpha=.1),    
+    tkl.MaxPooling2D(pool_size=(2,2)),
+    tkl.Dropout(.25),
+    tkl.GlobalMaxPooling2D(),    
+    tkl.Dense(512),
+    tkl.LeakyReLU(alpha=.1),
+    tkl.Dropout(.25),
+    tkl.Dense(128),
+    tkl.LeakyReLU(alpha=.1),
+    tkl.Dropout(.25),
+    tkl.Dense(num_classes,activation='softmax')])
+adv_config=nsl.configs\
+.make_adv_reg_config(multiplier=.2,adv_step_size=.05)
+adv_model=nsl.keras\
+.AdversarialRegularization(base_model,adv_config=adv_config)
+model_weights='/tmp/checkpoint'
+checkpointer=tkc.ModelCheckpoint(
+    filepath=model_weights,verbose=2,save_weights_only=True,
+    monitor='val_sparse_categorical_accuracy',
+    mode='max',save_best_only=True)
+adv_model.compile(optimizer='nadam',metrics=['accuracy'],
+                  loss='sparse_categorical_crossentropy')
+
+batch_size=16; epochs=50
+train=tf.data.Dataset.from_tensor_slices(
+    {'input':x_train,'label':y_train}).batch(batch_size)
+valid=tf.data.Dataset.from_tensor_slices(
+    {'input':x_valid,'label':y_valid}).batch(batch_size)
+valid_steps=x_valid.shape[0]//batch_size
+adv_model.fit(train,validation_data=valid,
+              verbose=2,callbacks=[checkpointer],
+              validation_steps=valid_steps,epochs=epochs);
+
+adv_model.load_weights(model_weights)
+adv_model.evaluate({'input':x_test,'label':y_test})
 
 """### PyTorch Models"""
 
@@ -395,7 +442,9 @@ low2superbicubic_imgs(img,lr,sr)
 
 """## ✒️  Color Interpolation"""
 
-def interpolate_hypersphere(v1,v2,steps):
+def hyper_interpolate(v1,v2,steps,max_img_size=max_img_size):
+    for img in [v1,v2]:
+        img=tf.image.resize(img,[max_img_size,max_img_size])
     v1norm=tf.norm(v1); v2norm=tf.norm(v2)
     vectors=[]; v2normalized=v2*(v1norm/v2norm)
     for step in range(steps):
@@ -404,13 +453,11 @@ def interpolate_hypersphere(v1,v2,steps):
         interpolated_normalized=interpolated*(v1norm/interpolated_norm)
         vectors.append(interpolated_normalized)
     return tf.stack(vectors).numpy()
-imgs=tf.concat([interpolate_hypersphere(x_valid[0],x_test[0],steps),
-                interpolate_hypersphere(x_test[0],x_valid[0],steps)],
-               axis=0)
+imgs=tf.concat([hyper_interpolate(x_valid[0],x_test[0],steps),
+                hyper_interpolate(x_test[0],x_valid[0],steps)],axis=0)
 
 file_name='pic.gif'
-imgs=np.array(imgs*float(255),dtype=np.uint8)\
-.reshape(2*steps,data_img_size,data_img_size,3)
+imgs=np.array(imgs*float(255),dtype=np.uint8)
 imageio.mimsave(file_name,imgs)
 Image(open('pic.gif','rb').read())
 
@@ -423,15 +470,14 @@ def load_img(img_file,max_img_size=max_img_size):
     img=tf.io.read_file(img_file)
     img=tf.image.decode_image(img,channels=3)
     img=tf.image.convert_image_dtype(img,tf.float32)
-    shape=tf.cast(tf.shape(img)[:-int(1)],tf.float32)
+    shape=tf.cast(tf.shape(img)[:-1],tf.float32)
     scale=max_img_size/max(shape)
     new_shape=tf.cast(shape*scale,tf.int32)
     img=tf.image.resize(img,new_shape)
     return img[tf.newaxis,:]
 def tensor2img(tensor):
     if np.ndim(tensor)>int(3):
-        assert tensor.shape[0]==1
-        tensor=tensor[0]
+        assert tensor.shape[0]==1; tensor=tensor[0]
     pl.figure(figsize=(3,3)); pl.imshow(tensor)
     pl.tight_layout(); pl.show()
 for f in img_files:
@@ -448,6 +494,7 @@ for i in range(len(img_files)):
         prediction_probabilities.numpy())[0]
     sp.pretty_print('example #%d'%(i+1))
     display(pd.DataFrame(
-        [[class_name,prob] for (number,class_name,prob) in predict_top5],
+        [[class_name,prob] 
+         for (number,class_name,prob) in predict_top5],
         columns=['class name','prob']))
     tensor2img(content_img)
