@@ -221,3 +221,65 @@ with h5py.File(file_name_h5,'r') as f:
     f.close()
 ti=[names[i][labels[n,i]] for i in range(3)]
 pl.imshow(images[n]); pl.title(str(ti));
+
+# Commented out IPython magic to ensure Python compatibility.
+# %ch1 ZIP Storing of All Images with the Same Labels
+
+if (file_name_zip in os.listdir()): os.remove(file_name_zip)
+start=0; file_list_out=[]
+letter_names=(
+    [['name %d'%i,[np.string_(name.encode('utf-8')) for name in names[i]]] 
+     for i in range(len(names))])
+np.savetxt('letter_names.txt',[str(letter_names)],fmt='%s')
+print('letter labels: '+letter_names[1][1][0].decode('utf-8')+\
+      '-'+letter_names[1][1][32].decode('utf-8'))
+with zipfile.ZipFile(file_name_zip,'w') as f:
+    f.write('letter_names.txt')      
+def file_exist(file_name,file_path=file_path):
+    r=requests.head(file_path+file_name)
+    exist={'True':'exists','False':'does not exist'}
+    print(file_path+file_name,exist[str(r.status_code==int(200))])
+    return r.status_code==int(200)
+for f in file_list:
+    if file_exist(f):
+        img,gray_img,edges=cv_get_img(f,lc,uc)
+        closed_edges=get_closed_img(edges,edge_kernel)
+        contours,contour_img=get_contours(gray_img,closed_edges)
+        imgs=get_imgs(contours)
+        file_list_out=get_zip(imgs=imgs,start=start)
+        start=int(file_list_out[-1][-7:-4])+1
+    else: break
+file_list_out[-1]
+
+# Commented out IPython magic to ensure Python compatibility.
+# %ch1 H5 Storing of All Images with the Same Labels
+
+file_name_h5=file_pre[:-1]+'.h5'; imgs,lbls=[],[]
+def file_exist(file_name,file_path=file_path):
+    r=requests.head(file_path+file_name)
+    exist={'True':'exists','False':'does not exist'}
+    print(file_path+file_name,exist[str(r.status_code==int(200))])
+    return r.status_code==int(200)
+for f in file_list:
+    if file_exist(f):
+        img,gray_img,edges=cv_get_img(f,lc,uc)
+        closed_edges=get_closed_img(edges,edge_kernel)
+        contours,contour_img=get_contours(gray_img,closed_edges)
+        imgs0=get_imgs(contours); imgs.append(imgs0)
+        lbls.append(
+            [[int(file_pre[:2]),int(file_pre[3:5]),int(file_pre[6:8])]
+             for i in range(len(imgs0))])
+imgs=np.array(np.vstack(imgs),dtype='float32')
+lbls=np.array(np.vstack(lbls),dtype='int32')
+print(imgs.shape,lbls.shape)
+maxlen=max([max([len(n) for n in names[i]]) for i in range(len(names))])
+nms=[np.array([np.string_(name.encode('utf-8')) for name in names[i]],
+              dtype='S%d'%maxlen)
+           for i in range(len(names))]
+with h5py.File(file_name_h5,'w') as f:
+    f.create_dataset('images',data=imgs,compression='gzip')
+    f.create_dataset('labels',data=lbls,compression='gzip')
+    for i in range(len(names)): 
+        f.create_dataset('names%d'%(i+1),data=nms[i],
+                         dtype='S%d'%maxlen,compression='gzip')
+    f.close()
