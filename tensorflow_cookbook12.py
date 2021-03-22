@@ -71,7 +71,7 @@ def h5file2data(h5file,img_size,
     with h5py.File(h5file,'r') as f:
         keys=list(f.keys()); print('file keys: '+', '.join(keys))
         images=np.array(f[keys[int(0)]],dtype='float32')
-        labels=np.array(f[keys[int(1)]])
+        labels=np.array(f[keys[int(1)]],dtype='float32')
         names=[[el.decode('utf-8') for el in f[keys[i]]]
                for i in range(2,len(keys))]
         f.close()
@@ -98,7 +98,7 @@ def h5file2data(h5file,img_size,
     idx=['labels %d'%(i+1) for i in range(labels.shape[0])]
     df=pd.DataFrame(labels,index=idx).T
     for i in range(labels.shape[0]):
-        df['name %d'%(i+1)]=[names[i][l] for l in labels[i]]
+        df['name %d'%(i+1)]=[names[i][int(l)] for l in labels[i]]
     fig=pl.figure(figsize=(1.5*fig_size,fig_size))    
     for i in range(labels.shape[0]):
         ax=fig.add_subplot(labels.shape[0],1,i+1)
@@ -113,7 +113,7 @@ def display_images(images,labels,names,n):
         ax=fig.add_subplot(int(n//5)+1,5,i+1,xticks=[],yticks=[])
         ax.imshow(images[idx],cmap='bone')
         label=[labels[:,idx]]
-        name=[names[i][labels[i][idx]] 
+        name=[names[i][int(labels[i][idx])] 
               for i in range(labels.shape[0])]
         ti='{} \n {}'.format(str(label),str(name))
         ax.set_title(ti,fontsize=8)
