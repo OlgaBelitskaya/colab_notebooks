@@ -156,16 +156,16 @@ COCO17_HUMAN_POSE_KEYPOINTS=\
  (5,7),(7,9),(6,8),(8,10),(5,6),(5,11),
  (6,12),(11,12),(11,13),(13,15),(12,14),(14,16)]
 
-file_path='https://olgabelitskaya.gitlab.io/images/'
+file_path='https://olgabelitskaya.gitlab.io/data/'
 images_dict={
-    'squirrel':file_path+'01_024.png',
-    'urban lights':file_path+'01_026.png',
-    'ducks':file_path+'01_027.png',
-    'science lesson':file_path+'01_028.png',
-    'butterflies':file_path+'01_030.png',
-    'insects':file_path+'01_031.png',
-    'illuminations':file_path+'01_033.png',
-    'dusk':file_path+'01_035.png'
+    'squirrel':file_path+'animals/'+'00_00_001.png',
+    'urban lights':file_path+'urban/'+'01_00_002.png',
+    'ducks':file_path+'birds/'+'00_02_003.png',
+    'science lesson':file_path+'humans/'+'01_00_001.png',
+    'butterflies':file_path+'butterflies/'+'00_00_00_001.png',
+    'insects':file_path+'butterflies/'+'00_01_00_002.png',
+    'illuminations':file_path+'urban/'+'01_00_004.png',
+    'dusk':file_path+'urban/'+'02_00_001.png'
 }
 
 selected_img='ducks'
