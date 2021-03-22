@@ -46,24 +46,24 @@ import os,urllib,tensorflow_hub as hub
 import numpy as np,tensorflow as tf,pylab as pl
 import PIL.Image,time,imageio
 from IPython.core.magic import register_line_magic
-file_path='https://olgabelitskaya.gitlab.io/images/'
+file_path='https://olgabelitskaya.gitlab.io/data/'
 tfhub_path='https://tfhub.dev/google/magenta/'+\
            'arbitrary-image-stylization-v1-256/2'
 os.environ['TFHUB_MODEL_LOAD_FORMAT']='COMPRESSED'
 
-def get_file(file,file_path=file_path):
-    input_file=urllib.request.urlopen(file_path+file)
-    output_file=open(file,'wb'); 
+def get_file(file_name,folder_name,file_path=file_path):
+    print(file_path+folder_name+file_name)
+    input_file=urllib.request.urlopen(
+        file_path+folder_name+file_name)
+    output_file=open(file_name,'wb'); 
     output_file.write(input_file.read())
     output_file.close(); input_file.close()
-def load_img(path_to_img):
-    max_dim=512
+def load_img(path_to_img,max_dim=512):
     img=tf.io.read_file(path_to_img)
     img=tf.image.decode_image(img,channels=3)
     img=tf.image.convert_image_dtype(img,tf.float32)
     shape=tf.cast(tf.shape(img)[:-1],tf.float32)
-    long_dim=max(shape)
-    scale=max_dim/long_dim
+    long_dim=max(shape); scale=max_dim/long_dim
     new_shape=tf.cast(shape*scale,tf.int32)
     img=tf.image.resize(img,new_shape)
     return img[tf.newaxis,:]
@@ -76,8 +76,7 @@ def tensor2img(tensor,rot=True):
         tensor=tensor[0]
     return PIL.Image.fromarray(tensor)
 
-def display_images(original_img,style_img,
-                   rot=True,file_path=file_path):
+def display_images(original_img,style_img,rot=True):
     if rot: original_img=tf.image.rot90(original_img) 
     fig=pl.figure(figsize=(10,5))
     ax=fig.add_subplot(121)
@@ -101,8 +100,23 @@ def item_stats(item):
 # Commented out IPython magic to ensure Python compatibility.
 # %cmap_header Image Data
 
-original,style='01_012.png','06_001.png'
-for f in [original,style]: get_file(f)
+original,style='00_01_001.png','01_00_001.png'
+original_folder,style_folder='humans/','paintings/'
+for f in [[original,original_folder],[style,style_folder]]: 
+    get_file(f[0],f[1])
+original_img=load_img(original)
+style_img=load_img(style)
+display_images(original_img,style_img)
+
+hub_model=hub.load(tfhub_path)
+stylized_img=hub_model(
+    tf.constant(original_img),tf.constant(style_img))[0]
+tensor2img(stylized_img)
+
+original,style='00_01_001.png','00_02_001.png'
+original_folder,style_folder='humans/','paintings/'
+for f in [[original,original_folder],[style,style_folder]]: 
+    get_file(f[0],f[1])
 original_img=load_img(original)
 style_img=load_img(style)
 display_images(original_img,style_img)
@@ -120,7 +134,7 @@ vgg19=tf.keras.applications.VGG19(
 layers=[]
 for layer in vgg19.layers:
     layers+=[layer.name]
-print(layers)
+for i in range(5): print(layers[5*i:5*(i+1)])
 original_layers=['block5_conv2'] 
 style_layers=['block1_conv1','block2_conv1',
               'block3_conv1','block4_conv1','block5_conv1']
@@ -139,8 +153,10 @@ def vgg_layers(layer_names):
 # Commented out IPython magic to ensure Python compatibility.
 # %cmap_header Style Extracting
 
-original,style='01_012.png','06_002.png'
-for f in [original,style]: get_file(f)
+original,style='00_01_001.png','02_01_001.png'
+original_folder,style_folder='humans/','paintings/'
+for f in [[original,original_folder],[style,style_folder]]: 
+    get_file(f[0],f[1])
 original_img=load_img(original)
 style_img=load_img(style)
 display_images(original_img,style_img)
@@ -193,8 +209,8 @@ item_stats(sorted(results['original'].items()))
 style_targets=extractor(style_img)['style']
 original_targets=extractor(original_img)['original']
 optimizer=tf.optimizers.Adam(
-    learning_rate=.01,beta_1=.99,epsilon=.1)
-style_weight=.01; original_weight=10**3
+    learning_rate=.009,beta_1=.99,epsilon=.1)
+style_weight=.02; original_weight=10**3
 img=tf.Variable(original_img)
 
 def clip01(img):
@@ -229,7 +245,7 @@ for i in range(5):
 tensor2img(img)
 
 start=time.time()
-epochs=50; steps_per_epoch=100
+epochs=30; steps_per_epoch=100
 step=0
 for n in range(epochs):
     for m in range(steps_per_epoch):
@@ -286,7 +302,7 @@ tf.image.total_variation(img).numpy()
 # Commented out IPython magic to ensure Python compatibility.
 # %cmap_header Train Steps with Total Variation Loss
 
-total_variation_weight=30
+total_variation_weight=70
 img=tf.Variable(original_img)
 @tf.function()
 def train_step(img,total_variation_weight=total_variation_weight):
@@ -299,7 +315,7 @@ def train_step(img,total_variation_weight=total_variation_weight):
     img.assign(clip01(img))
 
 start=time.time()
-epochs=50; steps_per_epoch=100
+epochs=20; steps_per_epoch=100
 step=0; imgs=[]
 for n in range(epochs):
     for m in range(steps_per_epoch):
