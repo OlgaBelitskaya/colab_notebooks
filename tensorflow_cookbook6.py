@@ -42,10 +42,9 @@ import tensorflow as tf,tensorflow_hub as hub
 import numpy as np,pylab as pl
 import os,urllib,PIL.Image,time,imageio
 from IPython.core.magic import register_line_magic
-file_path='https://olgabelitskaya.gitlab.io/images/'
+file_path='https://olgabelitskaya.gitlab.io/data/'
 
-def display_images(original_img,style_img,
-                   file_path=file_path):    
+def display_images(original_img,style_img):    
     fig=pl.figure(figsize=(10,5))
     ax=fig.add_subplot(121)
     str1='Shape of the original image: %s'
@@ -78,11 +77,14 @@ def tensor2img(tensor):
     return PIL.Image.fromarray(tensor)
 
 # Commented out IPython magic to ensure Python compatibility.
-# %cmap_header Image Data
+# %cmap_header Image Data for Mixed Styles
 
-original,style='01_011.png','06_001.png'
-original=tf.keras.utils.get_file(original,file_path+original)
-style=tf.keras.utils.get_file(style,file_path+style)
+original,style='02_00_001.png','01_00_001.png'
+original_folder,style_folder='seasons/','paintings/'
+original=tf.keras.utils.get_file(
+    original,file_path+original_folder+original)
+style=tf.keras.utils.get_file(
+    style,file_path+style_folder+style)
 original_img=load_img(original)
 style_img=load_img(style)
 prepro_original_img=preprocess_img(original_img,384)
@@ -175,7 +177,7 @@ imgs=np.vstack(
          np.squeeze(prepro_original_img),2*steps)])
 
 file_name='pic.gif'
-imgs=imgs*255
+imgs=np.clip(imgs*255,0,255)
 imgs=np.array(imgs,dtype=np.uint8)
 imageio.mimsave(file_name,imgs)
 Image(open('pic.gif','rb').read())
