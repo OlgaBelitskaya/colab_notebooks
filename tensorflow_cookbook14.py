@@ -41,7 +41,7 @@ from PIL import Image,\
 ImageColor,ImageDraw,ImageFont,ImageOps
 from six.moves.urllib.request import urlopen
 from six import BytesIO
-file_path='https://olgabelitskaya.gitlab.io/images/'
+file_path='https://olgabelitskaya.gitlab.io/data/'
 img_size=512
 font_url='/usr/share/fonts/truetype/'+\
          'liberation/LiberationSansNarrow-Regular.ttf'
@@ -57,9 +57,9 @@ def load_img(path):
     img=tf.io.read_file(path)
     img=tf.image.decode_jpeg(img,channels=3)
     return img
-def get_resize_img(file_name,file_path,
+def get_resize_img(file_name,folder_path,file_path,
                    width=img_size,height=img_size,display=False):
-    file_name=file_path+file_name
+    file_name=file_path+folder_path+file_name
     img_data=urlopen(file_name).read()
     img_data=BytesIO(img_data)
     pil_img=Image.open(img_data)
@@ -118,13 +118,15 @@ def draw_boxes(img,boxes,class_names,scores,
 # Commented out IPython magic to ensure Python compatibility.
 # %ch1 Image Examples
 
-file_name1='01_023.png'
+folder_path1,file_name1='birds/','00_02_002.png'
 img_path1=get_resize_img(
-    file_name1,file_path,width=1280,height=856,display=True)
+    file_name1,folder_path1,file_path,
+    width=1280,height=856,display=True)
 
-file_name2='01_026.png'
+folder_path2,file_name2='urban/','01_00_003.png'
 img_path2=get_resize_img(
-    file_name2,file_path,width=1280,height=856,display=True)
+    file_name2,folder_path2,file_path,
+    width=1280,height=856,display=True)
 
 # Commented out IPython magic to ensure Python compatibility.
 # %ch1 TF Detector
