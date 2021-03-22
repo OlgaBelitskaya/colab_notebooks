@@ -11,8 +11,8 @@ Original file is located at
 
 import tensorflow as tf,tensorflow_hub as hub
 import cv2,urllib,pylab as pl,numpy as np
-file_path='https://olgabelitskaya.gitlab.io/images/'
-file_name='01_001.png'
+file_path='https://olgabelitskaya.gitlab.io/data/flowers/'
+file_name='12_001.png'
 
 """## ✒️  Data Loading"""
 
