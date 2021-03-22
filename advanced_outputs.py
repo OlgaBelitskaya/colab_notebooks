@@ -170,18 +170,18 @@ import cv2,numpy as np,imageio,PIL.Image
 from skimage import io,transform
 from google.colab.patches import cv2_imshow
 
-!curl -o 001.png https://olgabelitskaya.gitlab.io/images/01_001.png
-!curl -o 03_012.png https://olgabelitskaya.gitlab.io/images/03_012.png
-!curl -o 03_015.png https://olgabelitskaya.gitlab.io/images/03_015.png
+!curl -o 12_001.png https://olgabelitskaya.gitlab.io/data/flowers/12_001.png
+!curl -o 01_01_001.png https://olgabelitskaya.gitlab.io/data/patterns/01_01_001.png
+!curl -o 01_01_004.png https://olgabelitskaya.gitlab.io/data/patterns/01_01_004.png
 
-img=cv2.imread('001.png',cv2.IMREAD_UNCHANGED)
+img=cv2.imread('12_001.png',cv2.IMREAD_UNCHANGED)
 cv2_imshow(img)
 
-file1,file2='03_012.png','03_015.png'
+file1,file2='01_01_001.png','01_01_004.png'
 def create_coords(file1,file2):
     img1,img2=io.imread(file1),io.imread(file2)
     imgbw1,imgbw2=np.ones(img1.shape[:2]),np.ones(img2.shape[:2])
-    imgbw1[img1[:,:,1]<200],imgbw2[img2[:,:,1]<200]=0,0
+    imgbw1[img1[:,:,1]<128],imgbw2[img2[:,:,1]<128]=0,0
     coord1=np.array(np.where(imgbw1<1)).T; coord=coord1
     coord2=np.array(np.where(imgbw2<1)).T
     if coord1.shape[0]>coord2.shape[0]: coord1,coord2=coord2,coord
