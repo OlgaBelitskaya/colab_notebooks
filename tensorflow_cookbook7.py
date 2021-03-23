@@ -89,30 +89,30 @@ def low2bicubic_low2super(lr0,sr1,sr2):
         lr0,[img_size*4,img_size*4],
         tf.image.ResizeMethod.BICUBIC)
     bicubic4=tf.cast(bicubic4,tf.uint8)
-    pl.subplot(1,3,2); pl.title(f'Bicubic x4')
+    pl.subplot(1,3,2); pl.title('Bicubic x4')
     pl.imshow(bicubic4.numpy())
     bicubic16=tf.image.resize(
         bicubic4,[img_size*16,img_size*16],
         tf.image.ResizeMethod.BICUBIC)
     bicubic16=tf.cast(bicubic16,tf.uint8)
-    pl.subplot(1,3,3); pl.title(f'Bicubic x16')
+    pl.subplot(1,3,3); pl.title('Bicubic x16')
     pl.imshow(bicubic16.numpy())
     pl.tight_layout(); pl.show()
     pl.figure(figsize=(15,5))
     pl.subplot(1,3,1); pl.title('LR0')
     pl.imshow(lr0.numpy())   
-    pl.subplot(1,3,2); pl.title(f'ESRGAN x4')
+    pl.subplot(1,3,2); pl.title('ESRGAN x4')
     pl.imshow(sr1.numpy())
-    pl.subplot(1,3,3); pl.title(f'ESRGAN x16')
+    pl.subplot(1,3,3); pl.title('ESRGAN x16')
     pl.imshow(sr2.numpy())
     pl.tight_layout(); pl.show()
 
 # Commented out IPython magic to ensure Python compatibility.
 # %cmap_header ESRGAN Super Resolution
 
-file_path='https://olgabelitskaya.gitlab.io/images/'
-file_name='04_001.png'
-lr0=get_resize_img(file_path+file_name,50)
+file_path1='https://olgabelitskaya.gitlab.io/data/pictograms/'
+file_name1='00_02_012.png'
+lr0=get_resize_img(file_path1+file_name1,50)
 lr0.shape
 
 lr1,sr1=esrgantf2_superresolution(lr0)
@@ -123,8 +123,9 @@ lr2.shape,sr2.shape
 
 low2bicubic_low2super(lr0,sr1,sr2)
 
-file_name='01_019.png'
-lr0=get_resize_img(file_path+file_name,50)
+file_path2='https://olgabelitskaya.gitlab.io/data/birds/'
+file_name2='00_01_001.png'
+lr0=get_resize_img(file_path2+file_name2,50)
 lr0.shape
 
 lr1,sr1=esrgantf2_superresolution(lr0)
