@@ -17,11 +17,11 @@ import pandas as pd,numpy as np,pylab as pl
 file_path='https://raw.githubusercontent.com/'+\
            'OlgaBelitskaya/data_kitchen/main/'
 file_name='HorseBreeds160.h5'
-img_size=int(128)
+img_size=96
 
 """## ✒️  Image Data"""
 
-def get_data(file_path,file_name,img_size=int(160)):
+def get_data(file_path,file_name,img_size=160):
     input_file=urllib.request.urlopen(file_path+file_name)
     output_file=open(file_name,'wb')
     output_file.write(input_file.read())
@@ -83,31 +83,32 @@ def esrgantf2_superresolution(img,img_size=int(50)):
     interpreter.allocate_tensors()
     input_details=interpreter.get_input_details()
     output_details=interpreter.get_output_details()
-    interpreter.set_tensor(input_details[int(0)]['index'],lr)
+    interpreter.set_tensor(input_details[0]['index'],lr)
     interpreter.invoke()
     output_data=interpreter.get_tensor(output_details[int(0)]['index'])
-    sr=tf.squeeze(output_data,axis=int(0))
-    sr=tf.clip_by_value(sr,int(0),int(255))
+    sr=tf.squeeze(output_data,axis=0)
+    sr=tf.clip_by_value(sr,0,255)
     sr=tf.round(sr); sr=tf.cast(sr,tf.uint8)
-    lr=tf.cast(tf.squeeze(lr,axis=int(0)),tf.uint8)
+    lr=tf.cast(tf.squeeze(lr,axis=0),tf.uint8)
     return lr,sr
-lr,sr=esrgantf2_superresolution(images[int(0)],img_size)
+lr,sr=esrgantf2_superresolution(images[0],img_size)
 
-def low2superbicubic_imgs(lr,sr):
+def low2super_bicubic_contrast(lr,sr):
     pl.figure(figsize=(12,6)); pl.title('LR')
     pl.imshow(lr.numpy()); pl.show()
     pl.figure(figsize=(12,6))
-    pl.subplot(1,2,1); pl.title(f'ESRGAN (x4)')
+    pl.subplot(1,2,1); pl.title('ESRGAN x4')
     pl.imshow(sr.numpy())
-    img_size=lr.shape[int(1)]
+    img_size=lr.shape[1]
     bicubic=tf.image.resize(
-        lr,[img_size*int(4),img_size*int(4)],
+        lr,[img_size*4,img_size*4],
         tf.image.ResizeMethod.BICUBIC)
-    bicubic=tf.cast(bicubic, tf.uint8)
-    pl.subplot(1,2,2); pl.title('Bicubic')
-    pl.imshow(bicubic.numpy())
+    bicubic_contrast=tf.image.adjust_contrast(bicubic,.8)
+    bicubic_contrast=tf.cast(bicubic_contrast,tf.uint8)
+    pl.subplot(1,2,2); pl.title('Bicubic & Contrast')
+    pl.imshow(bicubic_contrast.numpy())
     pl.tight_layout(); pl.show()
-low2superbicubic_imgs(lr,sr)
+low2super_bicubic_contrast(lr,sr)
 
 """## ✒️ Color Interpolation"""
 
@@ -116,7 +117,7 @@ def interpolate_hypersphere(v1,v2,steps):
     v2normalized=v2*(v1norm/v2norm)
     vectors=[]
     for step in range(steps):
-        interpolated=v1+(v2normalized-v1)*step/(steps-int(1))
+        interpolated=v1+(v2normalized-v1)*step/(steps-1)
         interpolated_norm=tf.norm(interpolated)
         interpolated_normalized=interpolated*(v1norm/interpolated_norm)
         vectors.append(interpolated_normalized)
@@ -125,11 +126,13 @@ def interpolate_hypersphere(v1,v2,steps):
 lr1,sr1=esrgantf2_superresolution(x_train[0],img_size)
 lr2,sr2=esrgantf2_superresolution(x_train[1],img_size)
 
-img1=sr1.numpy()/float(255); img2=sr2.numpy()/float(255)
-imgs=np.vstack([interpolate_hypersphere(img1,img2,int(30)),
-                interpolate_hypersphere(img2,img1,int(30))])
+steps=30
+img1=sr1.numpy()/255; img2=sr2.numpy()/255
+imgs=np.vstack([interpolate_hypersphere(img1,img2,steps),
+                interpolate_hypersphere(img2,img1,steps)])
 
 file_name='pic.gif'
-imgs=np.array(imgs*float(255),dtype=np.uint8)
+imgs=np.clip(imgs*255,0,255)
+imgs=np.array(imgs,dtype=np.uint8)
 imageio.mimsave(file_name,imgs)
 Image(open('pic.gif','rb').read())
