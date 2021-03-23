@@ -110,6 +110,21 @@ display_images(original_img,style_img)
 
 hub_model=hub.load(tfhub_path)
 stylized_img=hub_model(
+    tf.constant(original_img),
+    tf.image.rot90(tf.constant(style_img)))[0]
+tensor2img(stylized_img)
+
+original,style='00_01_001.png','01_05_002.png'
+original_folder,style_folder='humans/','paintings/'
+for f in [[original,original_folder],[style,style_folder]]: 
+    get_file(f[0],f[1])
+original_img=load_img(original)
+#for i in range(3): original_img=tf.image.rot90(original_img)
+style_img=load_img(style)
+display_images(original_img,style_img)
+
+hub_model=hub.load(tfhub_path)
+stylized_img=hub_model(
     tf.constant(original_img),tf.constant(style_img))[0]
 tensor2img(stylized_img)
 
@@ -123,7 +138,22 @@ display_images(original_img,style_img)
 
 hub_model=hub.load(tfhub_path)
 stylized_img=hub_model(
-    tf.constant(original_img),tf.constant(style_img))[0]
+    tf.constant(original_img),
+    tf.image.rot90(tf.constant(style_img)))[0]
+tensor2img(stylized_img)
+
+original,style='00_01_001.png','00_03_001.png'
+original_folder,style_folder='humans/','paintings/'
+for f in [[original,original_folder],[style,style_folder]]: 
+    get_file(f[0],f[1])
+original_img=load_img(original)
+style_img=load_img(style)
+display_images(original_img,style_img)
+
+hub_model=hub.load(tfhub_path)
+stylized_img=hub_model(
+    tf.constant(original_img),
+    tf.image.rot90(tf.constant(style_img)))[0]
 tensor2img(stylized_img)
 
 # Commented out IPython magic to ensure Python compatibility.
@@ -153,7 +183,7 @@ def vgg_layers(layer_names):
 # Commented out IPython magic to ensure Python compatibility.
 # %cmap_header Style Extracting
 
-original,style='00_01_001.png','02_01_001.png'
+original,style='00_01_001.png','03_06_001.png'
 original_folder,style_folder='humans/','paintings/'
 for f in [[original,original_folder],[style,style_folder]]: 
     get_file(f[0],f[1])
@@ -206,10 +236,10 @@ item_stats(sorted(results['original'].items()))
 # Commented out IPython magic to ensure Python compatibility.
 # %cmap_header Gradient Descent Steps
 
-style_targets=extractor(style_img)['style']
+style_targets=extractor(tf.image.rot90(style_img))['style']
 original_targets=extractor(original_img)['original']
 optimizer=tf.optimizers.Adam(
-    learning_rate=.009,beta_1=.99,epsilon=.1)
+    learning_rate=.01,beta_1=.99,epsilon=.1)
 style_weight=.02; original_weight=10**3
 img=tf.Variable(original_img)
 
@@ -302,7 +332,7 @@ tf.image.total_variation(img).numpy()
 # Commented out IPython magic to ensure Python compatibility.
 # %cmap_header Train Steps with Total Variation Loss
 
-total_variation_weight=70
+total_variation_weight=10
 img=tf.Variable(original_img)
 @tf.function()
 def train_step(img,total_variation_weight=total_variation_weight):
@@ -315,7 +345,7 @@ def train_step(img,total_variation_weight=total_variation_weight):
     img.assign(clip01(img))
 
 start=time.time()
-epochs=20; steps_per_epoch=100
+epochs=100; steps_per_epoch=100
 step=0; imgs=[]
 for n in range(epochs):
     for m in range(steps_per_epoch):
