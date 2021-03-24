@@ -9,69 +9,67 @@ Original file is located at
 
 import random; from IPython.display import display,HTML
 from IPython.core.magic import register_line_magic
+import warnings; warnings.filterwarnings('ignore')
+import pandas as pd,numpy as np,pylab as pl
+import tensorflow as tf,sklearn.model_selection as sms
+from sklearn import datasets
+from tensorflow.data import Dataset as tds
+
 @register_line_magic
 def radial_gradient_header(params):
     randi=str(random.randint(1,9999999))
     params=params.split('|'); string=params[0]
-    if len(params)==1: 
-        font_size=str(30); font_family='Ewert'
-    elif len(params)==2: 
-        font_size=params[1]; font_family='Ewert'
-    else:
-        font_size=params[1]; font_family=params[2]
-    html_str="""<style>@import 'https://fonts.googleapis.com/css?"""+\
-    """family="""+font_family+"""'; #div"""+randi+\
-    """ {background:white; padding:2px;}
-    .textrg {display:inline-block; font-size:"""+font_size+\
-    """px; line-height:1.1; padding:5px; font-family:"""+font_family+\
-    """,sans-serif; text-transform:uppercase;
-       background:radial-gradient(
-           circle farthest-corner at center center,
-           orange,magenta,cyan) no-repeat;
-       -webkit-background-clip:text;
-       -webkit-text-fill-color:transparent;}</style>
-    <div id='div"""+randi+"""'><text class='textrg'>"""+string+\
-    """</text></div>"""
+    if len(params)==1: font_size=str(30); font_family='Ewert'
+    elif len(params)==2: font_size=params[1]; font_family='Ewert'
+    else: font_size=params[1]; font_family=params[2]
+    html_str="""<style>
+    @import 'https://fonts.googleapis.com/css?family="""+font_family+"""'; 
+    #div"""+randi+""" {background:white; padding:2px;}
+    .rgtext {display:inline-block; padding:5px; font-size:"""+font_size+"""px; 
+             line-height:1.1; font-family:"""+font_family+""",sans-serif; 
+             text-transform:uppercase;
+             background:radial-gradient(
+                 circle farthest-corner at center center,
+                 orange,magenta,cyan) no-repeat;
+            -webkit-background-clip:text;
+            -webkit-text-fill-color:transparent;}
+    </style><div id='div"""+randi+"""'>
+    <text class='rgtext'>"""+string+"""</text></div>"""
     display(HTML(html_str))
-
-import warnings; warnings.filterwarnings('ignore')
-import pandas as pd,numpy as np
-import pylab as pl,tensorflow as tf
-from sklearn import datasets
-import sklearn.model_selection as sms
-from tensorflow.data import Dataset as tds
-
-def pd_style():
-    return [dict(selector='th',
-                 props=[('font-size','10pt'),('min-width','45px')]),
-            dict(selector='td',
-                 props=[('padding','0em 0em'),('min-width','45px')]),
-            dict(selector='tr:hover th:hover',
-                 props=[('font-size','11pt'),('max-width','45px'),
-                        ('text-shadow','3px 3px 3px #aaa')]),
-            dict(selector='tr:hover td:hover',
-                 props=[('font-size','10pt'),('max-width','45px'),
-                        ('text-shadow','3px 3px 3px #aaa')])]
+@register_line_magic
+def df_num_style(line_num):
+    global df_num,numeric_features
+    stats=df_num.describe().transpose()
+    for nc in numeric_features:
+        mean=stats.loc[nc,'mean']; std=stats.loc[nc,'std']
+        df_num.loc[:,nc]=(df_num.loc[:,nc]-mean)/std
+    style_dict=[dict(selector='th',
+                     props=[('font-size','10pt'),('min-width','45px')]),
+                dict(selector='td',
+                     props=[('padding','0em 0em'),('min-width','45px')]),
+                dict(selector='tr:hover th:hover',
+                     props=[('font-size','11pt'),('max-width','45px'),
+                            ('text-shadow','3px 3px 3px #aaa')]),
+                dict(selector='tr:hover td:hover',
+                     props=[('font-size','10pt'),('max-width','45px'),
+                            ('text-shadow','3px 3px 3px #aaa')])]
+    display(df_num[numeric_features].tail(int(line_num))
+            .style.bar(align='mid',color=['#55eeee','#ee55ee'],
+                       subset=numeric_features).set_precision(3)\
+            .set_table_styles(style_dict))
 
 # Commented out IPython magic to ensure Python compatibility.
 # %radial_gradient_header Data Exploration
 
+# Commented out IPython magic to ensure Python compatibility.
 boston_data=datasets.load_boston()
-columns=boston_data.feature_names
-boston_df=pd.DataFrame(boston_data.data,columns=columns)
+boston_df=pd.DataFrame(
+    boston_data.data,columns=boston_data.feature_names)
 boston_df['MEDV']=boston_data.target
 boston_df[['CHAS','RAD']]=boston_df[['CHAS','RAD']].astype('int64')
-numeric_features=\
-boston_df.columns[[0,2,4,5,6,7,9,10,11,12,13]]
-stats=boston_df.describe().transpose()
-dfn=boston_df.copy()
-for nc in numeric_features:
-    mean=stats.loc[nc,'mean']; std=stats.loc[nc,'std']
-    dfn.loc[:,nc]=(dfn.loc[:,nc]-mean)/std
-dfn[numeric_features].tail(int(10)).style.bar(
-    align='mid',color=['#55eeee','#ee55ee'],
-    subset=numeric_features).set_precision(3)\
-   .set_table_styles(pd_style())
+numeric_features=boston_df.columns[[0,2,4,5,6,7,9,10,11,12,13]]
+df_num=boston_df.copy()
+# %df_num_style 10
 
 # Commented out IPython magic to ensure Python compatibility.
 # %radial_gradient_header Data Processing
@@ -82,11 +80,9 @@ for nc in numeric_features[:-1]:
         tf.feature_column.numeric_column(key=nc)) 
 for nf in tfnumeric_features: 
     print(str(nf)); break
-fchas=tf.feature_column\
-.categorical_column_with_vocabulary_list(
+fchas=tf.feature_column.categorical_column_with_vocabulary_list(
     key='CHAS',vocabulary_list=[0,1])
-frad=tf.feature_column\
-.categorical_column_with_vocabulary_list(
+frad=tf.feature_column.categorical_column_with_vocabulary_list(
     key='RAD',vocabulary_list=[1,2,3,4,5,6,7,8,24])
 tfcategorical_features=[]
 fchas_emb=tf.feature_column.embedding_column(fchas,dimension=2)
@@ -100,7 +96,7 @@ tfbucketized_features=[tf.feature_column.bucketized_column(
 print(str(tfbucketized_features[0]))
 
 features=(tfnumeric_features+tfbucketized_features+tfcategorical_features)
-dfn_train,dfn_test=sms.train_test_split(dfn,train_size=.8,shuffle=True)
+dfn_train,dfn_test=sms.train_test_split(df_num,train_size=.8,shuffle=True)
 print(str([len(dfn_train),len(dfn_test)]))
 
 batch_size=8
@@ -157,7 +153,7 @@ py_test=[]
 for i in range(len(dfn_test)):
     py_test.append(next(iter(y_test_pred))['predictions'][0])
 
-pl.figure(figsize=(10,4))
+pl.figure(figsize=(12,4))
 pl.plot(range(len(dfn_test)),dfn_test['MEDV'],
         '-o',label='real data',c='#55eeee',ms=7)
 pl.plot(range(len(dfn_test)),py_test,
