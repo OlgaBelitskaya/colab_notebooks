@@ -7,6 +7,7 @@ Original file is located at
     https://colab.research.google.com/drive/1UPT3vUBNdrfHPl33H6FVKRu8Mf-Lc8px
 """
 
+#@title 🏙 TensorFlow Series <br/> Header Styling
 import random; from IPython.display import display,HTML
 from IPython.core.magic import register_line_magic
 @register_line_magic
@@ -15,11 +16,9 @@ def decor_header(params):
     if len(params)==1: 
         font_size='24'; font_family='Wallpoet'; cmap='Sinebow'
     elif  len(params)==2: 
-        font_size=params[1]
-        font_family='Wallpoet'; cmap='Sinebow'
+        font_size=params[1]; font_family='Wallpoet'; cmap='Sinebow'
     elif  len(params)==3: 
-        font_size=params[1]; font_family=params[2]
-        cmap='Sinebow'
+        font_size=params[1]; font_family=params[2]; cmap='Sinebow'
     else: 
         font_size=params[1]; font_family=params[2]; cmap=params[3]
     height=max([int(font_size)*2.5,60]) 
@@ -62,23 +61,49 @@ var tc=setInterval(function() {
 # %decor_header Modules, Helpful Functions, & Styling
 
 import warnings; warnings.filterwarnings('ignore')
+from IPython.display import display,HTML,Javascript,Image
+from IPython.core.magic import register_line_magic
+from google.colab import output
 import numpy as np,pandas as pd,pylab as pl
-import tensorflow_hub as th
-import seaborn as sn,zipfile,h5py,urllib
-import tensorflow as tf,keras as ks
+import tensorflow_hub as th,tensorflow as tf
+import seaborn as sn,h5py,urllib,PIL.Image
 from sklearn.model_selection import train_test_split
-from keras.callbacks import ModelCheckpoint,EarlyStopping
-from keras.callbacks import ReduceLROnPlateau
-import PIL.Image
-
+import tensorflow.keras.callbacks as tkc,\
+tensorflow.keras.layers as tkl
 data_path='https://raw.githubusercontent.com/'+\
           'OlgaBelitskaya/data_kitchen/main/'
-file_path='https://olgabelitskaya.gitlab.io/images/'
+file_path='https://olgabelitskaya.gitlab.io/data/'
 tfhub_path='https://tfhub.dev/google/magenta/'+\
            'arbitrary-image-stylization-v1-256/1'
-model_weights='weights.best.flowers.hdf5'
-model_weights2='weights.best.cifar.hdf5'
+mw='/checkpoints'
 
+def pretty_print(string):
+    js_str="""
+var out1=document.querySelector('#output-area'),
+    text1=document.createElement('text'),
+    str1='"""+string+"""';
+text1.appendChild(document.createTextNode(str1));
+out1.appendChild(text1); 
+text1.id='text1'; text1.style.padding='20px'; 
+out1.style.border='double'; out1.style.width='50%';
+var tc=setInterval(function() {
+  var doc=document.getElementById('text1');
+  var sec=Math.floor(new Date().getTime()%60000/1000);
+  var col='rgb(0,'+(5+Math.abs(245-8*sec))+','+
+          (250-Math.abs(245-8*sec))+')';
+  doc.style.color=col;}, 1000);  
+"""
+    display(Javascript(js_str))
+def df_style():
+    pth=[('font-size','12pt'),('min-width','150px'),('height','25px')]
+    ptd=[('padding','0em 0em'),('min-width','150px')]
+    phth=[('font-size','14pt'),('max-width','150px'),
+          ('text-shadow','3px 3px 3px #aaa')]
+    phtd=[('font-size','12pt'),('max-width','150px'),
+          ('text-shadow','3px 3px 3px #aaa')]
+    return [{'props':pth,'selector':'th'},{'props':ptd,'selector':'td'},
+            {'props':phth,'selector':'tr:hover th:hover'},
+            {'props':phtd,'selector':'tr:hover td:hover'}]
 def prepro(x_train,y_train,x_test,y_test):
     n=int(len(x_test)/2)
     x_valid,y_valid=x_test[:n],y_test[:n]
@@ -87,63 +112,57 @@ def prepro(x_train,y_train,x_test,y_test):
                      [y_train.shape,y_valid.shape,y_test.shape]],
                     columns=['train','valid','test'],
                     index=['images','labels'])
-    display(df)
-    return [[x_train,x_valid,x_test],
-            [y_train,y_valid,y_test]]
+    display(df.style.set_table_styles(df_style()))
+    return [[x_train,x_valid,x_test],[y_train,y_valid,y_test]]
 
-def cb(fw):
-    early_stopping=tf.keras.callbacks\
-    .EarlyStopping(monitor='val_loss',patience=20,verbose=2)
-    checkpointer=tf.keras.callbacks\
-    .ModelCheckpoint(filepath=fw,verbose=int(0),
-                     save_weights_only=True,save_best_only=True,
-                     monitor='val_accuracy',mode='max')
-    lr_reduction=tf.keras.callbacks\
-    .ReduceLROnPlateau(monitor='val_loss',verbose=2,
-                       patience=5,factor=.8)
-    return [checkpointer,early_stopping,lr_reduction]
-
-def load_img(path_to_img):
-    max_dim=512
+def get_file(file_name,folder_path,file_path=file_path):
+    input_file=urllib.request.urlopen(
+        file_path+folder_path+file_name)
+    output_file=open(file_name,'wb'); 
+    output_file.write(input_file.read())
+    output_file.close(); input_file.close()
+def load_img(path_to_img,max_dim=512):
     img=tf.io.read_file(path_to_img)
     img=tf.image.decode_image(img,channels=3)
     img=tf.image.convert_image_dtype(img,tf.float32)
     shape=tf.cast(tf.shape(img)[:-1],tf.float32)
-    long_dim=max(shape)
-    scale=max_dim/long_dim
+    scale=max_dim/max(shape)
     new_shape=tf.cast(shape*scale,tf.int32)
     img=tf.image.resize(img,new_shape)
-    img=img[tf.newaxis,:]
-    return img
+    return img[tf.newaxis,:]
 def tensor_to_image(tensor):
-    tensor=tensor*255
+    tensor=np.clip(tensor*255,0,255)
     tensor=np.array(tensor,dtype=np.uint8)
     if np.ndim(tensor)>3:
-        assert tensor.shape[0]==1
-        tensor=tensor[0]
+        assert tensor.shape[0]==1; tensor=tensor[0]
     return PIL.Image.fromarray(tensor)
+
+def cb(mw):
+    early_stopping=tkc.EarlyStopping(
+        monitor='val_loss',patience=20,verbose=2)
+    checkpointer=tkc.ModelCheckpoint(
+        filepath=mw,verbose=0,save_weights_only=True,
+        save_best_only=True,monitor='val_accuracy',mode='max')
+    lr_reduction=tkc.ReduceLROnPlateau(
+        monitor='val_loss',verbose=2,patience=5,factor=.8)
+    return [checkpointer,early_stopping,lr_reduction]
 
 # Commented out IPython magic to ensure Python compatibility.
 # %decor_header Data Loading & Preprocessing
 
-zf='Flowers128.h5'
-input_file=urllib.request.urlopen(data_path+zf)
-output_file=open(zf,'wb')
-output_file.write(input_file.read())
-output_file.close(); input_file.close()
-with h5py.File(zf,'r') as f:
+get_file('Flowers128.h5','',data_path)
+with h5py.File('Flowers128.h5','r') as f:
     keys=list(f.keys())
-    print('h5py.File keys: '+', '.join(keys))
+    pretty_print('h5py.File keys: '+', '.join(keys))
     images=np.array(f[keys[0]])
-    labels=np.array(f[keys[1]])
-    names=[el.decode('utf-8')for el in f[keys[2]]]
+    labels=np.array(f[keys[1]],dtype='float32')
+    names=[el.decode('utf-8') for el in f[keys[2]]]
     f.close()
 
 df=pd.DataFrame(labels,columns=['label'])
-df['class']=[names[l] for l in labels]
-pl.figure(figsize=(8,4))
-sn.countplot(y='class',data=df,palette='cool',alpha=.5)
-ti='Label Distribution'
+df['class']=[names[int(l)] for l in labels]
+pl.figure(figsize=(8,4)); ti='Label Distribution'
+sn.countplot(y='class',data=df,palette='winter',alpha=.5)
 pl.title(ti,fontsize=16); pl.tight_layout(); pl.show()
 
 N=labels.shape[0]; n=int(.1*N); shuffle_ids=np.arange(N)
@@ -158,17 +177,17 @@ df=pd.DataFrame(
      [y_train.dtype,y_valid.dtype,y_test.dtype]],
     columns=['train','valid','test'],
     index=['image shape','image type','label shape','label type'])
-fig=pl.figure(figsize=(8,4)); n=np.random.randint(1,100)
-for i in range(n,n+6):
-    ax=fig.add_subplot(2,3,i-n+1,xticks=[],yticks=[])
-    ax.set_title(
-        names[labels[i]],color='slategray',
-        fontdict={'fontsize':'large'})
+fig=pl.figure(figsize=(8,4)); randi=np.random.randint(1,100)
+for i in range(randi,randi+6):
+    ax=fig.add_subplot(2,3,i-randi+1,xticks=[],yticks=[])
+    ax.set_title(names[int(labels[i])],color='slategray',
+                 fontdict={'fontsize':'large'})
     ax.imshow((images[i]))
-pl.tight_layout(); pl.show(); display(df)
+pl.tight_layout(); pl.show()
+display(df.style.set_table_styles(df_style()))
 
 (x_train2,y_train2),(x_test2,y_test2)=\
-ks.datasets.cifar10.load_data()
+tf.keras.datasets.cifar10.load_data()
 [[x_train2,x_valid2,x_test2],
  [y_train2,y_valid2,y_test2]]=\
 prepro(x_train2,y_train2,x_test2,y_test2)
@@ -181,16 +200,10 @@ pl.title(cifar_labels[y_train2[200][0]])
 pl.imshow(x_train2[200]);
 
 # Commented out IPython magic to ensure Python compatibility.
-# %decor_header Fast Examples
+# %decor_header Fast Examples Of Neural Networks
 
-def get_file(file,file_path=file_path):
-    input_file=urllib.request.urlopen(file_path+file)
-    output_file=open(file,'wb'); 
-    output_file.write(input_file.read())
-    output_file.close(); input_file.close()
-get_file('06_001.png')
-
-content_image=load_img('06_001.png')
+get_file('01_00_002.png','paintings/')
+content_image=load_img('01_00_002.png')
 x=tf.keras.applications.vgg19\
 .preprocess_input(content_image*255)
 x=tf.image.resize(x,(224,224))
@@ -199,109 +212,99 @@ vgg19=tf.keras.applications\
 prediction_probabilities=vgg19(x)
 predicted_top5=tf.keras.applications.vgg19\
 .decode_predictions(prediction_probabilities.numpy())[0]
-[print((class_name,prob)) 
- for (number,class_name,prob) in predicted_top5]
+[print([class_name,prob]) for (number,class_name,prob) in predicted_top5]
 tensor_to_image(content_image)
 
 hub_module=th.load(tfhub_path)
-get_file('06_001.png')
-get_file('02_018.png')
-content_image=load_img('06_001.png')
-style_image=load_img('02_018.png')
+get_file('00_03_002.png','paintings/')
+get_file('00_00_001.png','patterns/')
+content_image=load_img('00_03_002.png')
+style_image=load_img('00_00_001.png')
 stylized_image=hub_module(
-    tf.constant(content_image),
-    tf.constant(style_image))[0]
+    tf.constant(content_image),tf.constant(style_image))[0]
 tensor_to_image(stylized_image)
 
 # Commented out IPython magic to ensure Python compatibility.
-# %decor_header Keras Models
+# %decor_header Some Variants Of Keras Models
 
 def mlp_model(img_size,num_classes):
     model=tf.keras.models.Sequential([
-        tf.keras.layers.Flatten(
-            input_shape=(img_size,img_size,3)),
-        tf.keras.layers.Dense(128,activation='relu'),
-        tf.keras.layers.BatchNormalization(),    
-        tf.keras.layers.Dense(256,activation='relu'),
-        tf.keras.layers.BatchNormalization(),    
-        tf.keras.layers.Dense(512,activation='relu'),
-        tf.keras.layers.BatchNormalization(),   
-        tf.keras.layers.Dense(1024,activation='relu'),
-        tf.keras.layers.Dropout(.2),
-        tf.keras.layers.Dense(num_classes,activation='softmax')
+        tkl.Flatten(input_shape=(img_size,img_size,3)),
+        tkl.Dense(128,activation='relu'),
+        tkl.BatchNormalization(),    
+        tkl.Dense(256,activation='relu'),
+        tkl.BatchNormalization(),    
+        tkl.Dense(512,activation='relu'),
+        tkl.BatchNormalization(),   
+        tkl.Dense(1024,activation='relu'),
+        tkl.Dropout(.2),
+        tkl.Dense(num_classes,activation='softmax')
     ])
-    model.compile(optimizer='adam',
-                  loss='sparse_categorical_crossentropy',
-                  metrics=['accuracy'])
+    model.compile(optimizer='adam',metrics=['accuracy'],
+                  loss='sparse_categorical_crossentropy')
     return model
 
 model=mlp_model(128,20)
 model.fit(x_train,y_train,epochs=100,batch_size=16,
-          callbacks=cb(model_weights),
-          validation_data=(x_valid,y_valid));
+          callbacks=cb(mw),validation_data=(x_valid,y_valid));
 
-model.load_weights(model_weights)
-model.evaluate(x_test,y_test)
+model.load_weights(mw)
+pretty_print(str(model.evaluate(x_test,y_test,verbose=0)))
 
 model=mlp_model(32,10)
 model.fit(x_train2,y_train2,epochs=100,batch_size=16,
-          validation_data=(x_valid2,y_valid2),
-          callbacks=cb(model_weights2))
+          validation_data=(x_valid2,y_valid2),callbacks=cb(mw))
 
-model.load_weights(model_weights2)
-model.evaluate(x_test2,y_test2)
+model.load_weights(mw)
+pretty_print(str(model.evaluate(x_test2,y_test2,verbose=0)))
 
 def cnn_model(img_size,num_classes):
     model=tf.keras.models.Sequential([
-        tf.keras.layers.Conv2D(
-            32,(5,5),padding='same',
+        tkl.Conv2D(32,(5,5),padding='same',
             input_shape=(img_size,img_size,3)),
-        tf.keras.layers.Activation('relu'),
-        tf.keras.layers.MaxPooling2D(pool_size=(2,2)),
-        tf.keras.layers.Dropout(.25),
-        tf.keras.layers.Conv2D(196,(5,5)),
-        tf.keras.layers.Activation('relu'),    
-        tf.keras.layers.MaxPooling2D(pool_size=(2,2)),
-        tf.keras.layers.Dropout(.25),
-        tf.keras.layers.GlobalAveragePooling2D(),    
-        tf.keras.layers.Dense(512),
-        tf.keras.layers.Activation('relu'),
-        tf.keras.layers.Dropout(.25),
-        tf.keras.layers.Dense(128),
-        tf.keras.layers.Activation('relu'),
-        tf.keras.layers.Dropout(.25),
-        tf.keras.layers.Dense(num_classes,activation='softmax')
+        tkl.Activation('relu'),
+        tkl.MaxPooling2D(pool_size=(2,2)),
+        tkl.Dropout(.25),
+        tkl.Conv2D(196,(5,5)),
+        tkl.Activation('relu'),    
+        tkl.MaxPooling2D(pool_size=(2,2)),
+        tkl.Dropout(.25),
+        tkl.GlobalAveragePooling2D(),    
+        tkl.Dense(512),
+        tkl.Activation('relu'),
+        tkl.Dropout(.25),
+        tkl.Dense(128),
+        tkl.Activation('relu'),
+        tkl.Dropout(.25),
+        tkl.Dense(num_classes,activation='softmax')
     ])
-    model.compile(optimizer='adam',
-                  loss='sparse_categorical_crossentropy',
-                  metrics=['accuracy'])
+    model.compile(optimizer='adam',metrics=['accuracy'],
+                  loss='sparse_categorical_crossentropy')
     return model
 
 model=cnn_model(128,20)
 model.fit(x_train,y_train,epochs=100,batch_size=64,
-          validation_data=(x_valid,y_valid),
-          callbacks=cb(model_weights))
+          validation_data=(x_valid,y_valid),callbacks=cb(mw))
 
-model.load_weights(model_weights)
-model.evaluate(x_test,y_test)
+model.load_weights(mw)
+pretty_print(str(model.evaluate(x_test,y_test,verbose=0)))
 
 model=cnn_model(32,10)
 model.fit(x_train2,y_train2,epochs=100,batch_size=64,
-          validation_data=(x_valid2,y_valid2),
-          callbacks=cb(model_weights2))
+          validation_data=(x_valid2,y_valid2),callbacks=cb(mw))
 
-model.load_weights(model_weights2)
-model.evaluate(x_test2,y_test2)
+model.load_weights(mw)
+pretty_print(str(model.evaluate(x_test2,y_test2,verbose=0)))
 
 def rnn_model(img_size,hidden,num_classes):
     model=tf.keras.models.Sequential([
-        tf.keras.layers.BatchNormalization(
+        tkl.BatchNormalization(
             input_shape=(1,3*img_size**2)),
-        tf.keras.layers.LSTM(hidden,return_sequences=True),
-        tf.keras.layers.LSTM(hidden,return_sequences=True),
-        tf.keras.layers.LSTM(hidden),
-        tf.keras.layers.BatchNormalization(),     
-        tf.keras.layers.Dense(num_classes,activation='softmax')
+        tkl.LSTM(hidden,return_sequences=True),
+        tkl.LSTM(hidden,return_sequences=True),
+        tkl.LSTM(hidden),
+        tkl.BatchNormalization(),     
+        tkl.Dense(num_classes,activation='softmax')
     ])
     model.compile(loss='sparse_categorical_crossentropy',
                   optimizer='adam',metrics=['accuracy'])    
@@ -309,16 +312,18 @@ def rnn_model(img_size,hidden,num_classes):
 
 model=rnn_model(128,256,20)
 model.fit(x_train.reshape(-1,1,128*128*3),y_train,
-          epochs=100,batch_size=128,callbacks=cb(model_weights),
+          epochs=100,batch_size=128,callbacks=cb(mw),
           validation_data=(x_valid.reshape(-1,1,128*128*3),y_valid))
 
-model.load_weights(model_weights)
-model.evaluate(x_test.reshape(-1,1,128*128*3),y_test)
+model.load_weights(mw)
+pretty_print(str(model.evaluate(
+    x_test.reshape(-1,1,128*128*3),y_test,verbose=0)))
 
 model=rnn_model(32,128,10)
 model.fit(x_train2.reshape(-1,1,32*32*3),y_train2,
-          epochs=50,batch_size=128,callbacks=cb(model_weights2),
+          epochs=50,batch_size=128,callbacks=cb(mw),
           validation_data=(x_valid2.reshape(-1,1,32*32*3),y_valid2))
 
-model.load_weights(model_weights2)
-model.evaluate(x_test2.reshape(-1,1,32*32*3),y_test2)
+model.load_weights(mw)
+pretty_print(str(model.evaluate(
+    x_test2.reshape(-1,1,32*32*3),y_test2,verbose=0)))
