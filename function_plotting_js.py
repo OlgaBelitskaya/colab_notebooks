@@ -568,7 +568,8 @@ function drawChart() {
 
 HTML("""<script type='text/javascript' src='https://www.gstatic.com/charts/loader.js'></script>
 <div id='googlechart3' style='width:600px; height:600px;'></div><script>
-google.charts.load('current',{packages:['corechart']}); google.charts.setOnLoadCallback(drawChart);
+google.charts.load('current',{packages:['corechart']}); 
+google.charts.setOnLoadCallback(drawChart);
 function drawChart() {
     var data=google.visualization.arrayToDataTable([
         ['Element','Density',{role:'style'}],
@@ -622,7 +623,8 @@ function drawChart() {
 HTML("""<script type='text/javascript' src='https://www.gstatic.com/charts/loader.js'></script>
 <div id='googlechart5' style='width:600px; height:600px;'></div><script>
 function get_int(xmin,xmax) {return Math.floor(Math.random()*(xmax-xmin+1))+xmin;};
-function get_color(k) {return '#00'+get_int(10*k,255).toString(16)+get_int(10*k,255).toString(16);};
+function get_color(k) {
+    return '#00'+get_int(10*k,255).toString(16)+get_int(10*k,255).toString(16);};
 function fx(a,b,c,q,n,t,k) {
     var x1=Math.cos(Math.PI*t/n+k*Math.PI/q)+Math.cos(a*Math.PI*t/n+k*Math.PI/q);
     var x2=Math.cos(b*Math.PI*t/n+k*Math.PI/q)+Math.cos(c*Math.PI*t/n+k*Math.PI/q);
@@ -631,8 +633,10 @@ function fy(a,b,c,q,n,t,k) {
     var y1=Math.sin(Math.PI*t/n+k*Math.PI/q)-Math.sin(a*Math.PI*t/n+k*Math.PI/q);
     var y2=Math.sin(b*Math.PI*t/n+k*Math.PI/q)-Math.sin(c*Math.PI*t/n+k*Math.PI/q);
     return y1+y2};
-function ar(a,b,c,q,n,k) {return Array(2*n+1).fill(k).map((k,t)=>[fx(a,b,c,q,n,t,k),fy(a,b,c,q,n,t,k)]);};
-google.charts.load('current',{'packages':['corechart']}); google.charts.setOnLoadCallback(drawChart);
+function ar(a,b,c,q,n,k) {
+    return Array(2*n+1).fill(k).map((k,t)=>[fx(a,b,c,q,n,t,k),fy(a,b,c,q,n,t,k)]);};
+google.charts.load('current',{'packages':['corechart']}); 
+google.charts.setOnLoadCallback(drawChart);
 function drawChart() {
     var a=get_int(5,9),b=get_int(10,14),c=get_int(15,19),q=get_int(3,8),n=get_int(10,350); 
     var xy=ar(a,b,c,q,n,1); xy.unshift(['x',[a,b,c,q,n].toString()]); 
@@ -646,5 +650,5 @@ function drawChart() {
  </script>""")
 
 from IPython.display import HTML
-path='https://olgabelitskaya.github.io/instagram10.html'
+path='https://olgabelitskaya.gitlab.io/instagram_posts/instagram16.html'
 HTML("<iframe src=%s height='700' width='1000'></iframe>"%path)
