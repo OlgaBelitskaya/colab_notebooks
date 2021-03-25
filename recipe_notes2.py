@@ -37,11 +37,31 @@ def idhtml(string,font_family=f5,
                 (250-Math.abs(245-8*sec))+')';  
         iddoc.style.color=col;}, 1000);</script>"""
     display(HTML(css_str+h1_str+scr_str))
+def whtml(string,background_color='black',padding=2,
+          font_family='Akronim',font_size_px=int(28),
+          deg=int(120),percent=[0,33,67,100],
+          colors=['magenta','orange','cyan','purple']):
+    randi=str(random.randint(1,999999999))
+    css_str="""<style>@import 'https://fonts.googleapis.com/"""+\
+    """css?family="""+font_family+"""';</style>"""
+    html_str="""<div id='col_div"""+str(randi)+"""' 
+    style='background:"""+background_color+"""; width:75%; 
+    padding:"""+str(padding)+"""vw;'>
+    <div style='background:linear-gradient("""+str(deg)+"""deg, 
+    """+colors[0]+""" """+str(percent[0])+"""%,
+    """+colors[1]+""" """+str(percent[1])+"""%,
+    """+colors[2]+""" """+str(percent[2])+"""%,
+    """+colors[3]+""" """+str(percent[3])+"""%); 
+    font-family:"""+font_family+"""; font-size:"""+str(font_size_px)+"""px; 
+    -webkit-background-clip:text; color:transparent;'>"""+string+"""
+    </div></div>"""
+    display(HTML(css_str+html_str))
 
 #this one looks fine in the working space
 chtml('Style Applying to Classes of Elements')
 #and this one looks fine in the working space and after notebooks' execution
 idhtml('Style Applying to Id of Elements')
+whtml('Linear Gradient Applying to Id of Elements')
 
 from IPython.display import display,HTML
 import random
