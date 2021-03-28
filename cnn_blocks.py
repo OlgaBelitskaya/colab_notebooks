@@ -10,24 +10,21 @@ Original file is located at
 # Commented out IPython magic to ensure Python compatibility.
 from IPython.display import display,HTML
 c1,c2,f1,f2,fs1,fs2=\
-'#11ff66','#6611ff','Lobster','Orbitron',30,10
-def dhtml(string,fontcolor=c1,font=f1,fontsize=fs1):
-    display(HTML("""<style>
-    @import 'https://fonts.googleapis.com/css?family="""\
-    +font+"""&effect=3d-float';</style>
+'#11ff66','#9933ff','Lobster','Aladin',30,14
+def dhtml(string,font_color=c1,font_family=f1,font_size=fs1):
+    display(HTML("""
+    <style>@import 'https://fonts.googleapis.com/css?family="""\
+    +font_family+"""&effect=3d-float';</style>
     <h1 class='font-effect-3d-float' 
-    style='font-family:"""+font+\
-    """; color:"""+fontcolor+\
-    """; font-size:"""+str(fontsize)+"""px;'>
+    style='font-family:"""+font_family+"""; 
+    color:"""+font_color+"""; font-size:"""+str(font_size)+"""px;'>
 #     %s</h1>"""%string))
 
 dhtml('Code Modules, Setting, & Functions')
 
 import warnings; warnings.filterwarnings('ignore')
-import tensorflow as tf,pylab as pl
-import pandas as pd,numpy as np
-import scipy.signal as sps
-import skimage.measure as sim
+import tensorflow as tf,pylab as pl,pandas as pd,numpy as np
+import scipy.signal as sps,skimage.measure as skm
 import tensorflow.keras.layers as tkl
 import tensorflow.keras.utils as tku
 from IPython.core.magic import register_line_magic
@@ -41,19 +38,17 @@ w=np.random.random(num_w)
 x=np.random.random(num_x)
 
 w_rotated=np.array(w[::-1])
-pd.DataFrame([w,w_rotated],
-             index=['w','w_rotated'])\
+pd.DataFrame([w,w_rotated],index=['w','w_rotated'])\
 .style.background_gradient(cmap='cool',axis=1)
 
 def conv_step(x,i):
     y=np.dot(x[i:i+len(w)],w_rotated)
-    display(
-        pd.DataFrame([x,i*[np.nan]+list(w_rotated),
-                      i*[np.nan]+[y]],
-                     index=['x','w_rotated','y'])\
+    display(pd.DataFrame(
+        [x,i*[np.nan]+list(w_rotated),i*[np.nan]+[y]],
+        index=['x','w_rotated','y'])\
         .style.bar(align='mid',color=c2,
                    subset=list(range(i,i+len(w))))\
-        .set_properties(**{'max-width':'50px'}))  
+        .set_properties(**{'max-width':'60px'}))  
 for i in range(len(x)-len(w)+1): conv_step(x,i)
 
 def conv1d(x,w,p,s):
@@ -64,23 +59,21 @@ def conv1d(x,w,p,s):
     if p>0:
         zero_pad=np.zeros(shape=p)
         x_padded=np.concatenate([zero_pad,x_padded,zero_pad])
-    dhtml('x: <br/>'+str(x)+\
-          '<br/>padded x: </br>'+str(x_padded)+\
-          '<br/>w: <br/>'+str(w)+\
-          '<br/>rotated w: <br/>'+str(w_rotated),
-          c2,f2,fs2)
+    xw_str='x: <br/>'+str(x)+'<br/>padded x: </br>'+str(x_padded)+\
+           '<br/>w: <br/>'+str(w)+'<br/>rotated w: <br/>'+str(w_rotated)
+    dhtml(xw_str,c2,f2,fs2)
     result=[]; steps=int((x_length-w_length)/s)+w_length%2
     for i in range(0,steps,s):
         result.append(np.sum(x_padded[i:i+w_length]*w_rotated))
     return np.array(result)
-pd.DataFrame([conv1d(x,w,p=2,s=1),
-             np.convolve(x,w,mode='same')],
-             index=['conv1d','numpy convolve'])\
+pd.DataFrame(
+    [conv1d(x,w,p=2,s=1),np.convolve(x,w,mode='same')],
+    index=['conv1d','numpy convolve'])\
 .style.background_gradient(cmap='cool',axis=1)\
 .set_properties(**{'max-width':'50px'})
 
 pd.DataFrame([x,w]+[np.convolve(x,w,mode=m) 
-              for m in ['full','same','valid']])\
+             for m in ['full','same','valid']])\
 .style.background_gradient(cmap='cool',axis=1)\
 .set_properties(**{'max-width':'50px'})
 
@@ -95,8 +88,7 @@ X_padded[p[0]:p[0]+X.shape[0],
          p[1]:p[1]+X.shape[1]]=X
 pd.DataFrame(X_padded)\
 .style.background_gradient(cmap='cool',axis=1)\
-.set_properties(**{'max-width':'50px',
-                   'height':'50px'})
+.set_properties(**{'max-width':'50px','height':'50px'})
 
 num_W=3
 W=np.random.random([num_W,num_W])
@@ -104,16 +96,14 @@ W_rotated=np.array(W)[::-1,::-1]
 for m in [W,W_rotated]:
     display(pd.DataFrame(m)\
     .style.background_gradient(cmap='cool',axis=1)\
-    .set_properties(**{'max-width':'50px',
-                       'height':'50px'}))
+    .set_properties(**{'max-width':'50px','height':'50px'}))
 
 X0=X_padded[:num_W,:num_W]
 Y0=round(np.sum(X0*W_rotated),9)
 for m in [X0,W_rotated]:
     display(pd.DataFrame(m)\
     .style.background_gradient(cmap='cool',axis=1)\
-    .set_properties(**{'max-width':'50px',
-                    'height':'50px'}))
+    .set_properties(**{'max-width':'50px','height':'50px'}))
 dhtml(7*'&#x21e3;'+'<br/>'+str(Y0))
 
 def conv2d(X,W,p,s):
@@ -144,20 +134,18 @@ dhtml('Pooling Exploration')
 
 pool_size=3
 for [i,j] in [[0,0],[0,1],[1,0],[1,1]]:
-    display(pd.DataFrame(X[i*pool_size:(i+1)*pool_size,
-                           j*pool_size:(j+1)*pool_size])\
-            .style.highlight_max(color=c2,axis=None)\
-            .set_properties(**{'max-width':'50px',
-                               'height':'50px'}))
+    display(pd.DataFrame(
+        X[i*pool_size:(i+1)*pool_size,
+        j*pool_size:(j+1)*pool_size])\
+        .style.highlight_max(color=c2,axis=None)\
+        .set_properties(**{'max-width':'50px','height':'50px'}))
 
-maxp=sim.block_reduce(X,(pool_size,pool_size),np.max)
-pd.DataFrame(maxp)\
-.style.bar(align='mid',color=c2)\
+maxp=skm.block_reduce(X,(pool_size,pool_size),np.max)
+pd.DataFrame(maxp).style.bar(align='mid',color=c2)\
 .set_properties(**{'max-width':'50px'})
 
-meanp=sim.block_reduce(X,(pool_size,pool_size),np.mean)
-pd.DataFrame(meanp)\
-.style.bar(align='mid',color=c2)\
+meanp=skm.block_reduce(X,(pool_size,pool_size),np.mean)
+pd.DataFrame(meanp).style.bar(align='mid',color=c2)\
 .set_properties(**{'max-width':'50px'})
 
 dhtml('Keras Conv1D/MaxPool1D & Conv2D/MaxPool2D')
@@ -171,9 +159,8 @@ def get_model_plot1d(pars):
     ks=int(pars[3])
     ps=int(pars[4])
     model=tf.keras.Sequential()
-    model.add(tkl.InputLayer((num_timesteps,
-                              num_features),
-                             name='input'))
+    model.add(tkl.InputLayer(
+        (num_timesteps,num_features),name='input'))
     model.add(tkl.Conv1D(
         filters=num_filters,
         kernel_size=ks,
@@ -195,9 +182,8 @@ def get_model_plot2d(pars):
     ks=int(pars[3])
     ps=int(pars[4])
     model=tf.keras.Sequential()
-    model.add(tkl.InputLayer((img_size,img_size,
-                              num_channels),
-                             name='input'))
+    model.add(tkl.InputLayer(
+        (img_size,img_size,num_channels),name='input'))
     model.add(tkl.Conv2D(
         filters=num_filters,
         kernel_size=(ks,ks),strides=(1,1),
