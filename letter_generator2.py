@@ -14,7 +14,8 @@ import h5py,urllib,tensorflow as tf
 import pandas as pd,numpy as np,pylab as pl
 from IPython.display import display,HTML
 from sklearn.model_selection import train_test_split
-import tensorflow.keras.optimizers as tko,tensorflow.keras.layers as tkl
+import tensorflow.keras.optimizers as \
+tko,tensorflow.keras.layers as tkl
 np.set_printoptions(precision=6)
 
 def preprocess(x):    
@@ -38,9 +39,13 @@ def display_images(generated_images,img_size):
 
 """## ✒️ Data Loading and Preprocessing"""
 
+names=[['lowercase','uppercase'],
+       [s for s in u'абвгдеёжзийклмнопрстуфхцчшщъыьэюя'],
+       ['single-colored paper','striped paper',
+        'squared paper','graph paper']]
 path='https://raw.githubusercontent.com/'+\
-     'OlgaBelitskaya/data_kitchen/main/'
-h5f='Letters32.h5'
+     'OlgaBelitskaya/data/main/zip_letters/'
+h5f='01_05_00.h5'
 input_file=urllib.request.urlopen(path+h5f)
 output_file=open(h5f,'wb')
 output_file.write(input_file.read())
@@ -49,30 +54,25 @@ with h5py.File(h5f,'r') as f:
     keys=list(f.keys())
     print('file keys: '+', '.join(keys))
     images=np.array(f[keys[int(0)]])
-    labels=np.array(f[keys[int(1)]])
-    names=[[el.decode('utf-8') for el in f[keys[i]]]
-           for i in range(2,len(keys))]
+    labels=[el.decode('utf-8') for el in f[keys[1]]]
     f.close()
-images.shape,labels.shape,images.dtype
+images.shape,images.dtype,labels
 
-images=images[labels[2,:]==0]
-labels=labels[:,labels[2,:]==0][1,:]
-N=15000; sample_size=12
+N=1400; sample_size=12
 img_size=32; latent_size=128
 latent_sample_in=latent_samples(1,img_size**2)
 latent_sample_out=latent_samples(1,latent_size)
 images=tf.image.resize(images[:N],[img_size,img_size]).numpy()
-labels=labels[:N]
 gray_images=np.dot(images[...,:3],[.299,.587,.114])
 
 pl.figure(figsize=(2,3))
 randi=np.random.randint(int(.9*N))
 img=np.array(gray_images[randi])
 pl.imshow(img.astype(float),cmap=pl.cm.Greys)
-pl.tight_layout(); pl.title(labels[randi]); pl.show()
+pl.tight_layout(); pl.title(labels); pl.show()
 
 gray_images=gray_images.reshape(N,img_size**2)
-gray_images.shape,labels.shape,gray_images.dtype
+gray_images.shape,gray_images.dtype
 
 pl.figure(figsize=(2,3))
 img0=np.squeeze(latent_sample_in).reshape(img_size,img_size)
@@ -149,12 +149,12 @@ def simple_GAN(latent_size,img_size,g_hidden_size,d_hidden_size,
     return gan,generator,discriminator
 
 latent_size    =128     
-g_hidden_size  =512  # generator
-d_hidden_size  =512  # discriminator
+g_hidden_size  =1024  # generator
+d_hidden_size  =1024  # discriminator
 leaky_alpha    =.02
-g_learning_rate=.0002 # generator
-d_learning_rate=.0002  # discriminator
-epochs         =70
+g_learning_rate=.0001 # generator
+d_learning_rate=.0001  # discriminator
+epochs         =200
 batch_size     =64      
 valid_size     =16     
 smooth         =.1
@@ -194,7 +194,7 @@ for e in range(epochs):
     losses.append((d_loss,g_loss))
     st='epoch: %d/%d | discriminator loss: %.4f | '+\
        'generator loss: %.4f | d_loss > g_loss: %s'
-    if (e+1)%10==0:
+    if (e+1)%25==0:
         print(st%((e+1,epochs,d_loss,g_loss,d_loss>g_loss)))
         latent_examples=latent_samples(sample_size,latent_size)
         generated_letters=generator.predict(latent_examples)
