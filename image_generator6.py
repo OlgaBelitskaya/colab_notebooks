@@ -40,6 +40,7 @@ clickh('Code Modules & Parameters')
 
 import os,numpy as np,pandas as pd,pylab as pl
 import h5py,urllib,torch,torchvision,tensorflow as tf
+import tensorflow.keras.layers as tkl
 from torch.utils.data import Dataset as tds,DataLoader as tdl
 import torch.nn.functional as tnnf,torch.nn as tnn
 from IPython.core.magic import register_line_magic
@@ -94,10 +95,10 @@ def display_images(n_images,cols,images,labels):
 display_images(14,7,images,labels)
 
 img_size=28; N=labels.shape[0]; n=int(.2*N)
-images=tf.image.resize(images,[img_size,img_size])
-images=x=(np.dot(images.numpy(),[.299,.587,.114]))\
+x=tf.image.resize(images,[img_size,img_size])
+x=(np.dot(x.numpy(),[.299,.587,.114]))\
 .reshape(-1,1,img_size,img_size)
-x_test,x_train=images[:n],images[n:]
+x_test,x_train=x[:n],x[n:]
 y_test,y_train=labels[:,1][:n],labels[:,1][n:]
 
 pl.imshow(x_test[1].reshape(img_size,img_size),cmap=pl.cm.cool)
@@ -136,6 +137,27 @@ def display_examples(n):
                 (images[i]).reshape(img_size,img_size),cmap=pl.cm.bone)
         pl.tight_layout(); pl.show(); break
 # %display_examples 2
+
+seed_size2=16; noise_dim2=256; img_size2=42
+epochs=150; buffer_size2=11000; batch_size2=128
+norm_img=tf.random.normal([1,noise_dim2])
+seed_imgs=tf.random.normal([seed_size2,noise_dim2])
+
+x=tf.image.resize(255*images,[img_size2,img_size2]).numpy()
+x=tf.image.rgb_to_grayscale(x).numpy()
+x=np.array(x.reshape(-1,img_size2,img_size2,1),dtype='float32')
+
+pl.imshow(x[1].reshape(img_size2,img_size2),cmap=pl.cm.cool)
+pl.title('$\\mathbb{'+'an \\; image \\; example:'+'}$',color='#ff36ff')
+print(x[1].shape,x.mean())
+
+x=(127.5-x)/127.5
+letters=tf.data.Dataset.from_tensor_slices(x)\
+.shuffle(buffer_size2).batch(batch_size2)
+
+pl.imshow(x[1].reshape(img_size2,img_size2),cmap=pl.cm.cool)
+pl.title('$\\mathbb{'+'an \\; image \\; example:'+'}$',color='#ff36ff')
+print(x[1].shape,x.mean())
 
 clickh('Pytorch Autoencoders')
 
@@ -260,3 +282,101 @@ def display_gen(l):
 # %display_gen 3
 # %display_gen 4
 # %display_gen 5
+
+clickh('Keras DCGAN')
+
+def tfgenerator():
+    model=tf.keras.Sequential()
+    model.add(tkl.Dense(
+        7*7*256,use_bias=False,input_shape=(noise_dim2,)))
+    model.add(tkl.BatchNormalization())
+    model.add(tkl.LeakyReLU())
+    model.add(tkl.Reshape((7,7,256)))
+    model.add(tkl.Conv2DTranspose(
+        256,(7,7),strides=(3,3),
+        padding='same',use_bias=False))
+    model.add(tkl.BatchNormalization())
+    model.add(tkl.LeakyReLU())
+    model.add(tkl.Conv2DTranspose(
+        32,(7,7),strides=(2,2),
+        padding='same',use_bias=False))
+    model.add(tkl.BatchNormalization())
+    model.add(tkl.LeakyReLU())
+    model.add(tkl.Conv2DTranspose(
+        1,(7,7),strides=(1,1),padding='same',
+        use_bias=False,activation='tanh'))
+    return model
+tfgenerator=tfgenerator()
+
+def tfdiscriminator():
+    model=tf.keras.Sequential()
+    model.add(tkl.Conv2D(
+        32,(7,7),strides=(2,2),padding='same',
+        input_shape=[img_size2,img_size2,1]))
+    model.add(tkl.LeakyReLU())
+    model.add(tkl.Dropout(.2))
+    model.add(tkl.Conv2D(
+        256,(7,7),strides=(2,2),padding='same'))
+    model.add(tkl.LeakyReLU())
+    model.add(tkl.Dropout(.2))
+    model.add(tkl.Flatten())
+    model.add(tkl.Dense(1))
+    return model
+tfdiscriminator=tfdiscriminator()
+
+generated_img=tfgenerator(norm_img,training=False)
+pl.imshow(generated_img[0,:,:,0],cmap=pl.cm.cool)
+pl.title('$\\mathbb{'+str(generated_img.shape)+'}$'+'\n'+\
+         '$\\mathbb{'+str(tfdiscriminator(generated_img))+'}$',
+         color='#ff36ff');
+
+cross_entropy=tf.keras.losses.BinaryCrossentropy(from_logits=True)
+def discriminator_loss(real_output,fake_output):
+    real_loss=cross_entropy(tf.ones_like(real_output),real_output)
+    fake_loss=cross_entropy(tf.zeros_like(fake_output),fake_output)
+    total_loss=real_loss+fake_loss
+    return total_loss
+def generator_loss(fake_output):
+    return cross_entropy(tf.ones_like(fake_output),fake_output)
+generator_optimizer=tf.keras.optimizers.Adam(1e-3)
+discriminator_optimizer=tf.keras.optimizers.Adam(1e-3)
+
+@tf.function
+def train_step(imgs):
+    random_imgs=tf.random.normal([batch_size2,noise_dim2])
+    with tf.GradientTape() as gen_tape,tf.GradientTape() as disc_tape:
+        generated_imgs=tfgenerator(random_imgs,training=True)
+        real_output=tfdiscriminator(imgs,training=True)
+        fake_output=tfdiscriminator(generated_imgs,training=True)
+        gen_loss=generator_loss(fake_output)
+        disc_loss=discriminator_loss(real_output,fake_output)
+        gradients_of_generator=\
+        gen_tape.gradient(gen_loss,tfgenerator.trainable_variables)
+        gradients_of_discriminator=\
+        disc_tape.gradient(disc_loss,tfdiscriminator.trainable_variables)
+        generator_optimizer\
+        .apply_gradients(zip(gradients_of_generator,
+                             tfgenerator.trainable_variables))
+        discriminator_optimizer\
+        .apply_gradients(zip(gradients_of_discriminator,
+                             tfdiscriminator.trainable_variables))
+
+def generate_images(model,epoch,test_input):
+    predictions=model(test_input,training=False)
+    fig=pl.figure(figsize=(6,6))
+    for i in range(predictions.shape[0]):
+        pl.subplot(4,4,i+1)
+        pl.imshow(predictions[i,:,:,0]*127.5-127.5,cmap=pl.cm.bone)
+        pl.axis('off')
+    pl.savefig('epoch_{:04d}.png'.format(epoch+1))
+    pl.suptitle('$\\mathbb{'+'epoch: \\; %04d'%(epoch+1)+'}$',color='#ff36ff')
+    pl.show()
+
+def train(data,epochs):
+    for epoch in range(epochs):
+        for image_batch in data:
+            train_step(image_batch)
+        if (epoch+1)%30==0:
+            generate_images(tfgenerator,epoch,seed_imgs)
+
+train(letters,epochs)
