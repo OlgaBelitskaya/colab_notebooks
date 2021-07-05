@@ -8,7 +8,7 @@ Original file is located at
 """
 
 #@title Click Headers
-from IPython.display import HTML,display
+from IPython.display import HTML,display,Image
 def clickhtml(string,emo='✒️',font_color='#ff355e',
           font_family='times',font_size=22):
     html_str="""
@@ -17,7 +17,8 @@ def clickhtml(string,emo='✒️',font_color='#ff355e',
         &#34;"""+font_color+"""&#34;,
         &#34;"""+font_family+"""&#34;,
         &#34;"""+str(font_size)+"""&#34;)'
-    style='text-shadow:3px 3px 3px #ccc; font-family:courier; 
+    style='text-shadow:3px 3px 3px #ccc; 
+    font-family:courier; 
     font-size:20px; color:#ff33ff;'>
     """+emo+"""  """+string+"""
     </p>
@@ -372,10 +373,13 @@ def interpolate_between_vectors2(steps):
     v2=tf.random.normal([noise_dim])
     vectors=interpolate_hypersphere(v1,v2,steps)
     interpolated_imgs=tfgenerator2(vectors,training=False)
-#    interpolated_imgs=127.5-interpolated_imgs*127.5
+    interpolated_imgs=127.5-interpolated_imgs*127.5
     interpolated_imgs=\
     tf.image.resize(interpolated_imgs,[128,128])
     return interpolated_imgs
 
+file_name2='pic2.gif'
 imgs=interpolate_between_vectors2(180)
-animate(imgs)
+imgs=np.array(imgs,dtype=np.uint8)
+imageio.mimsave(file_name2,imgs)
+Image(open('pic2.gif','rb').read())
